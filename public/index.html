@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>دردشتي المباشرة</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+<!-- ===================== شاشة التسجيل / الدخول ===================== -->
+<div id="auth-view" class="screen">
+  <div class="auth-card">
+    <div class="brand">
+      <div class="brand-logo">💬</div>
+      <h1>دردشتي المباشرة</h1>
+      <p class="muted">دردشة نصية ومكالمات فيديو مباشرة</p>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="login">تسجيل الدخول</button>
+      <button class="tab-btn" data-tab="register">حساب جديد</button>
+    </div>
+
+    <!-- تسجيل الدخول -->
+    <form id="login-form" class="panel active">
+      <label>البريد الإلكتروني أو رقم الهاتف</label>
+      <input type="text" id="login-identifier" placeholder="example@email.com أو 05xxxxxxxx" required />
+      <label>كلمة المرور</label>
+      <input type="password" id="login-password" placeholder="••••••••" required />
+      <button type="submit" class="btn-primary">دخول</button>
+      <div class="form-msg" id="login-msg"></div>
+    </form>
+
+    <!-- إنشاء حساب -->
+    <form id="register-form" class="panel">
+      <label>الاسم الظاهر</label>
+      <input type="text" id="reg-name" placeholder="اسمك" required />
+
+      <label>طريقة التسجيل</label>
+      <div class="segmented" id="reg-method">
+        <button type="button" class="seg active" data-method="email">📧 البريد الإلكتروني</button>
+        <button type="button" class="seg" data-method="phone">📱 رقم الهاتف</button>
+      </div>
+
+      <label id="reg-identifier-label">البريد الإلكتروني</label>
+      <input type="text" id="reg-identifier" placeholder="example@email.com" required />
+
+      <label>كلمة المرور</label>
+      <input type="password" id="reg-password" placeholder="6 أحرف على الأقل" required />
+
+      <button type="submit" class="btn-primary">إنشاء الحساب</button>
+      <div class="form-msg" id="register-msg"></div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== شاشة تأكيد الرمز ===================== -->
+<div id="verify-view" class="screen hidden">
+  <div class="auth-card">
+    <div class="brand">
+      <div class="brand-logo">🔐</div>
+      <h1>تأكيد الحساب</h1>
+      <p class="muted" id="verify-sub">أدخل الرمز المرسل إليك</p>
+    </div>
+    <div id="dev-hint-box" class="dev-hint hidden"></div>
+    <form id="verify-form" class="panel active">
+      <label>رمز التأكيد (6 أرقام)</label>
+      <input type="text" id="verify-code" maxlength="6" inputmode="numeric" placeholder="------" class="code-input" required />
+      <button type="submit" class="btn-primary">تأكيد</button>
+      <button type="button" id="resend-btn" class="btn-link">إعادة إرسال الرمز</button>
+      <div class="form-msg" id="verify-msg"></div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== التطبيق الرئيسي ===================== -->
+<div id="app-view" class="screen hidden app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="me">
+        <div class="avatar" id="me-avatar"></div>
+        <div>
+          <div class="me-name" id="me-name"></div>
+          <div class="me-sub" id="me-sub"></div>
+        </div>
+      </div>
+      <button id="logout-btn" title="تسجيل الخروج" class="icon-btn">⏻</button>
+    </div>
+    <div class="sidebar-search">
+      <input type="text" id="search-users" placeholder="🔎 ابحث عن مستخدم..." />
+    </div>
+    <div class="users-list" id="users-list"></div>
+  </aside>
+
+  <main class="chat-area">
+    <div id="chat-empty" class="chat-empty">
+      <div class="chat-empty-icon">💬</div>
+      <p>اختر مستخدمًا من القائمة لبدء الدردشة</p>
+    </div>
+
+    <div id="chat-active" class="chat-active hidden">
+      <div class="chat-header">
+        <div class="chat-peer">
+          <div class="avatar" id="peer-avatar"></div>
+          <div>
+            <div class="peer-name" id="peer-name"></div>
+            <div class="peer-status" id="peer-status"></div>
+          </div>
+        </div>
+        <div class="chat-actions">
+          <button id="video-call-btn" class="icon-btn" title="مكالمة فيديو">📹</button>
+        </div>
+      </div>
+      <div class="messages" id="messages"></div>
+      <form id="message-form" class="message-form">
+        <input type="text" id="message-input" placeholder="اكتب رسالتك..." autocomplete="off" />
+        <button type="submit" class="btn-primary send-btn">إرسال</button>
+      </form>
+    </div>
+  </main>
+</div>
+
+<!-- ===================== طبقة المكالمة ===================== -->
+<div id="call-overlay" class="call-overlay hidden">
+  <div class="call-box">
+    <div id="call-status" class="call-status">جارٍ الاتصال...</div>
+    <div class="videos">
+      <video id="remote-video" autoplay playsinline></video>
+      <video id="local-video" autoplay playsinline muted></video>
+    </div>
+    <div class="call-controls">
+      <button id="toggle-mic" class="call-btn">🎙️</button>
+      <button id="toggle-cam" class="call-btn">📷</button>
+      <button id="end-call" class="call-btn end">📞</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== إشعار مكالمة واردة ===================== -->
+<div id="incoming-call" class="incoming-call hidden">
+  <div class="incoming-box">
+    <div class="avatar big" id="incoming-avatar"></div>
+    <div class="incoming-name" id="incoming-name"></div>
+    <div class="muted">مكالمة فيديو واردة...</div>
+    <div class="incoming-actions">
+      <button id="accept-call" class="call-btn accept">✔ قبول</button>
+      <button id="reject-call" class="call-btn end">✖ رفض</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
