@@ -112,9 +112,52 @@ function createAdminUser({ display_name, email, password_hash, avatar_color }) {
   return findUserById(info.lastInsertRowid);
 }
 
+function createUser(data) {
+  if (isFallback) {
+    const users = db.rawTables.users;
+    const newId = (users.length ? Math.max(...users.map(u => u.id)) : 0) + 1;
+    const user = {
+      id: newId,
+      display_name: data.display_name,
+      email: data.email || null,
+      phone: data.phone || null,
+      password_hash: data.password_hash,
+      verified: data.verified ? 1 : 0,
+      avatar_color: data.avatar_color || '#8b5cf6',
+      avatar_img: null,
+      coins: data.coins || 0,
+      diamonds: data.diamonds || 0,
+      level: data.level || 1,
+      followers_count: 0,
+      is_admin: data.is_admin ? 1 : 0,
+      banned: 0,
+      created_at: Date.now()
+    };
+    users.push(user); persist(); return user;
+  }
+  const info = db.prepare(`INSERT INTO users
+    (display_name, email, phone, password_hash, verified, avatar_color, coins, diamonds, level, followers_count, is_admin, banned, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?)`)
+    .run(data.display_name, data.email || null, data.phone || null, data.password_hash,
+      data.verified ? 1 : 0, data.avatar_color || '#8b5cf6', data.coins || 0,
+      data.diamonds || 0, data.level || 1, data.is_admin ? 1 : 0, Date.now());
+  return findUserById(info.lastInsertRowid);
+}
+
 function messageCount() {
   if (isFallback) return db.rawTables.messages.length;
   return db.prepare('SELECT COUNT(*) AS c FROM messages').get().c;
+}
+
+function deleteMessage(id) {
+  const mid = parseInt(id, 10);
+  if (isFallback) {
+    const before = db.rawTables.messages.length;
+    db.rawTables.messages = db.rawTables.messages.filter(m => m.id !== mid);
+    persist();
+    return before !== db.rawTables.messages.length;
+  }
+  return db.prepare('DELETE FROM messages WHERE id = ?').run(mid).changes > 0;
 }
 
 function recentMessages(limit = 20) {
@@ -132,6 +175,8 @@ module.exports = {
   updateUser,
   deleteUser,
   createAdminUser,
+  createUser,
   messageCount,
+  deleteMessage,
   recentMessages
 };

@@ -9,6 +9,7 @@ const { Server } = require('socket.io');
 
 const db = require('./db');
 const store = require('./admin-store');
+const platform = require('./platform-store');
 const { sendVerificationEmail } = require('./mailer');
 const { sendVerificationSms } = require('./sms');
 
@@ -24,17 +25,8 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// GIFTS CATALOG (LiveChat Style)
-const GIFTS_CATALOG = [
-  { id: 'rose', name: 'وردة حمراء', icon: '🌹', coins: 1, sound: 'sparkle', animation: 'float' },
-  { id: 'heart', name: 'قلب ناري', icon: '💖', coins: 5, sound: 'pop', animation: 'heartbeat' },
-  { id: 'coffee', name: 'قهوة', icon: '☕', coins: 10, sound: 'cheer', animation: 'bounce' },
-  { id: 'perfume', name: 'عطر فاخر', icon: '✨', coins: 25, sound: 'magic', animation: 'sparkle' },
-  { id: 'rocket', name: 'صاروخ فضائي', icon: '🚀', coins: 50, sound: 'launch', animation: 'fly_across' },
-  { id: 'crown', name: 'تاج الملكي', icon: '👑', coins: 100, sound: 'fanfare', animation: 'crown_drop' },
-  { id: 'car', name: 'سيارة رياضية', icon: '🏎️', coins: 500, sound: 'engine', animation: 'car_zoom' },
-  { id: 'castle', name: 'قصر الأحلام', icon: '🏰', coins: 1000, sound: 'triumph', animation: 'castle_epic' }
-];
+// Gift catalog is editable from the administration dashboard.
+let GIFTS_CATALOG = platform.getGifts(true);
 
 // Helper Functions
 function genCode() {
@@ -289,7 +281,27 @@ app.get('/api/admin/users', adminMiddleware, (req, res) => {
   });
 });
 
-app.patch('/api/admin/users/:id', adminMiddleware, (req, res) => {
+app.post('/api/admin/users', adminMiddleware, async (req, res) => {
+  const b = req.body || {};
+  const displayName = String(b.displayName || '').trim();
+  const email = String(b.email || '').toLowerCase().trim() || null;
+  const phone = normalizePhone(String(b.phone || '')) || null;
+  if (!displayName || (!email && !phone) || String(b.password || '').length < 6) {
+    return res.status(400).json({ error: 'الاسم ووسيلة تواصل وكلمة مرور من 6 أحرف مطلوبة.' });
+  }
+  if (email && store.findUserByEmail(email)) return res.status(409).json({ error: 'البريد مستخدم مسبقاً.' });
+  const user = store.createUser({
+    display_name: displayName, email, phone,
+    password_hash: await bcrypt.hash(String(b.password), 10),
+    verified: b.verified !== false, is_admin: !!b.isAdmin,
+    coins: Math.max(0, parseInt(b.coins, 10) || platform.getSettings().defaultCoins),
+    level: Math.max(1, parseInt(b.level, 10) || 1), avatar_color: b.avatarColor
+  });
+  platform.addAudit(req.admin.email, 'إنشاء مستخدم', `#${user.id} ${displayName}`);
+  res.status(201).json({ ok: true, id: user.id });
+});
+
+app.patch('/api/admin/users/:id', adminMiddleware, async (req, res) => {
   const user = store.findUserById(req.params.id);
   if (!user) return res.status(404).json({ error: 'المستخدم غير موجود.' });
 
@@ -298,15 +310,24 @@ app.patch('/api/admin/users/:id', adminMiddleware, (req, res) => {
   if (b.verified !== undefined) fields.verified = b.verified ? 1 : 0;
   if (b.banned !== undefined) fields.banned = b.banned ? 1 : 0;
   if (b.displayName !== undefined) fields.display_name = String(b.displayName).trim();
+  if (b.email !== undefined) fields.email = String(b.email || '').toLowerCase().trim() || null;
+  if (b.phone !== undefined) fields.phone = normalizePhone(String(b.phone || '')) || null;
+  if (b.avatarColor !== undefined && /^#[0-9a-f]{6}$/i.test(b.avatarColor)) fields.avatar_color = b.avatarColor;
   if (b.coins !== undefined) fields.coins = Math.max(0, parseInt(b.coins, 10) || 0);
   if (b.diamonds !== undefined) fields.diamonds = Math.max(0, parseInt(b.diamonds, 10) || 0);
   if (b.level !== undefined) fields.level = Math.max(1, parseInt(b.level, 10) || 1);
+  if (b.isAdmin !== undefined) fields.is_admin = b.isAdmin ? 1 : 0;
+  if (b.password) fields.password_hash = await bcrypt.hash(String(b.password), 10);
 
   if (user.is_admin && fields.banned === 1) {
     return res.status(400).json({ error: 'لا يمكن حظر حساب مسؤول.' });
   }
+  if (user.id === req.admin.id && fields.is_admin === 0) {
+    return res.status(400).json({ error: 'لا يمكنك إزالة صلاحياتك الإدارية.' });
+  }
 
   const updated = store.updateUser(user.id, fields);
+  platform.addAudit(req.admin.email, 'تعديل مستخدم', `#${user.id} ${user.display_name}`);
   if (fields.banned === 1) {
     io.emit('admin:banned', { userId: user.id });
   }
@@ -318,6 +339,7 @@ app.delete('/api/admin/users/:id', adminMiddleware, (req, res) => {
   if (!user) return res.status(404).json({ error: 'المستخدم غير موجود.' });
   if (user.is_admin) return res.status(400).json({ error: 'لا يمكن حذف حساب مسؤول.' });
   store.deleteUser(user.id);
+  platform.addAudit(req.admin.email, 'حذف مستخدم', `#${user.id} ${user.display_name}`);
   res.json({ ok: true });
 });
 
@@ -345,6 +367,115 @@ app.get('/api/admin/messages', adminMiddleware, (req, res) => {
   });
 });
 
+app.delete('/api/admin/messages/:id', adminMiddleware, (req, res) => {
+  if (!store.deleteMessage(req.params.id)) return res.status(404).json({ error: 'الرسالة غير موجودة.' });
+  platform.addAudit(req.admin.email, 'حذف رسالة', `رسالة #${req.params.id}`);
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/settings', adminMiddleware, (req, res) => {
+  res.json({ settings: platform.getSettings() });
+});
+
+app.patch('/api/admin/settings', adminMiddleware, (req, res) => {
+  const b = req.body || {};
+  const patch = {
+    siteName: String(b.siteName || 'LiveChat').trim().slice(0, 40),
+    tagline: String(b.tagline || '').trim().slice(0, 160),
+    version: String(b.version || '1.2.0').trim().slice(0, 20),
+    supportEmail: String(b.supportEmail || '').trim().slice(0, 100),
+    primaryColor: /^#[0-9a-f]{6}$/i.test(b.primaryColor) ? b.primaryColor : '#ff72ad',
+    secondaryColor: /^#[0-9a-f]{6}$/i.test(b.secondaryColor) ? b.secondaryColor : '#9b8afb',
+    maintenanceMode: !!b.maintenanceMode,
+    registrationEnabled: !!b.registrationEnabled,
+    demoLoginEnabled: !!b.demoLoginEnabled,
+    commentsEnabled: !!b.commentsEnabled,
+    giftsEnabled: !!b.giftsEnabled,
+    callsEnabled: !!b.callsEnabled,
+    defaultCoins: Math.max(0, parseInt(b.defaultCoins, 10) || 0),
+    maxMessageLength: Math.min(2000, Math.max(50, parseInt(b.maxMessageLength, 10) || 500))
+  };
+  const settings = platform.updateSettings(patch);
+  platform.addAudit(req.admin.email, 'تحديث إعدادات المنصة', 'تم حفظ إعدادات التشغيل والمظهر');
+  io.emit('platform:config', publicPlatformConfig());
+  res.json({ ok: true, settings });
+});
+
+app.get('/api/admin/gifts', adminMiddleware, (req, res) => res.json({ gifts: platform.getGifts(true) }));
+app.post('/api/admin/gifts', adminMiddleware, (req, res) => {
+  const b = req.body || {};
+  const id = String(b.id || b.name || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 30) || `gift_${Date.now()}`;
+  const gift = platform.saveGift({ id, name: String(b.name || 'هدية').trim().slice(0, 40), icon: String(b.icon || '🎁').slice(0, 8), coins: Math.max(1, parseInt(b.coins, 10) || 1), enabled: b.enabled !== false });
+  GIFTS_CATALOG = platform.getGifts(true);
+  platform.addAudit(req.admin.email, 'حفظ هدية', `${gift.icon} ${gift.name}`);
+  res.json({ ok: true, gift });
+});
+app.patch('/api/admin/gifts/:id', adminMiddleware, (req, res) => {
+  if (!platform.getGifts(true).some(g => g.id === req.params.id)) return res.status(404).json({ error: 'الهدية غير موجودة.' });
+  const b = req.body || {};
+  const gift = platform.saveGift({ id: req.params.id, ...(b.name !== undefined ? { name: String(b.name).trim().slice(0, 40) } : {}), ...(b.icon !== undefined ? { icon: String(b.icon).slice(0, 8) } : {}), ...(b.coins !== undefined ? { coins: Math.max(1, parseInt(b.coins, 10) || 1) } : {}), ...(b.enabled !== undefined ? { enabled: !!b.enabled } : {}) });
+  GIFTS_CATALOG = platform.getGifts(true);
+  platform.addAudit(req.admin.email, 'تعديل هدية', gift.name);
+  res.json({ ok: true, gift });
+});
+app.delete('/api/admin/gifts/:id', adminMiddleware, (req, res) => {
+  if (!platform.deleteGift(req.params.id)) return res.status(404).json({ error: 'الهدية غير موجودة.' });
+  GIFTS_CATALOG = platform.getGifts(true);
+  platform.addAudit(req.admin.email, 'حذف هدية', req.params.id);
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/announcements', adminMiddleware, (req, res) => res.json({ announcements: platform.getAnnouncements() }));
+app.post('/api/admin/announcements', adminMiddleware, (req, res) => {
+  const b = req.body || {};
+  if (!String(b.title || '').trim() || !String(b.body || '').trim()) return res.status(400).json({ error: 'العنوان والنص مطلوبان.' });
+  const announcement = platform.addAnnouncement({ title: String(b.title).trim().slice(0, 80), body: String(b.body).trim().slice(0, 400), type: ['info','success','warning','danger'].includes(b.type) ? b.type : 'info', active: b.active !== false });
+  platform.addAudit(req.admin.email, 'إضافة إعلان', announcement.title);
+  io.emit('platform:announcement', announcement);
+  res.status(201).json({ ok: true, announcement });
+});
+app.patch('/api/admin/announcements/:id', adminMiddleware, (req, res) => {
+  const announcement = platform.updateAnnouncement(req.params.id, { active: !!req.body.active });
+  if (!announcement) return res.status(404).json({ error: 'الإعلان غير موجود.' });
+  platform.addAudit(req.admin.email, 'تغيير حالة إعلان', announcement.title);
+  res.json({ ok: true, announcement });
+});
+app.delete('/api/admin/announcements/:id', adminMiddleware, (req, res) => {
+  if (!platform.deleteAnnouncement(req.params.id)) return res.status(404).json({ error: 'الإعلان غير موجود.' });
+  platform.addAudit(req.admin.email, 'حذف إعلان', req.params.id);
+  res.json({ ok: true });
+});
+
+app.post('/api/admin/streams', adminMiddleware, (req, res) => {
+  const b = req.body || {};
+  const id = `admin_stream_${Date.now()}`;
+  const stream = { id, title: String(b.title || 'بث مميز').trim().slice(0, 100), category: ['music','gaming','chat'].includes(b.category) ? b.category : 'chat', host: { id: 0, displayName: String(b.hostName || 'إدارة LiveChat').trim().slice(0, 50), avatarColor: b.avatarColor || '#9b8afb', level: 99 }, viewersCount: Math.max(1, parseInt(b.viewersCount, 10) || 1), likesCount: 0, diamondsEarned: 0, tags: ['مميز'], thumbnailGradient: 'linear-gradient(135deg, #f9a8d4, #c4b5fd)', videoUrl: String(b.videoUrl || '').trim() || '/videos/chat-live.mp4', startedAt: Date.now(), isSimulated: true };
+  activeLiveStreams.set(id, stream);
+  platform.addAudit(req.admin.email, 'إنشاء بث مميز', stream.title);
+  io.emit('streams:updated', { streams: Array.from(activeLiveStreams.values()) });
+  res.status(201).json({ ok: true, stream });
+});
+app.patch('/api/admin/streams/:id', adminMiddleware, (req, res) => {
+  const stream = activeLiveStreams.get(req.params.id);
+  if (!stream) return res.status(404).json({ error: 'البث غير موجود.' });
+  const b = req.body || {};
+  if (b.title !== undefined) stream.title = String(b.title).trim().slice(0, 100);
+  if (b.category !== undefined && ['music','gaming','chat'].includes(b.category)) stream.category = b.category;
+  if (b.viewersCount !== undefined) stream.viewersCount = Math.max(0, parseInt(b.viewersCount, 10) || 0);
+  if (b.videoUrl !== undefined) stream.videoUrl = String(b.videoUrl).trim();
+  platform.addAudit(req.admin.email, 'تعديل بث', stream.title);
+  io.emit('streams:updated', { streams: Array.from(activeLiveStreams.values()) });
+  res.json({ ok: true, stream });
+});
+
+app.get('/api/admin/audit', adminMiddleware, (req, res) => res.json({ audit: platform.getAudit(Math.min(300, parseInt(req.query.limit, 10) || 100)) }));
+
+function publicPlatformConfig() {
+  const s = platform.getSettings();
+  return { ...s, announcements: platform.getAnnouncements().filter(a => a.active).slice(0, 3) };
+}
+app.get('/api/config', (req, res) => res.json(publicPlatformConfig()));
+
 // ---------------- REST APIs ----------------
 
 // Health
@@ -361,6 +492,9 @@ app.get('/api/health', (req, res) => {
 // Demo Login
 app.post('/api/demo-login', async (req, res) => {
   try {
+    const settings = platform.getSettings();
+    if (settings.maintenanceMode) return res.status(503).json({ error: 'المنصة في وضع الصيانة.' });
+    if (!settings.demoLoginEnabled) return res.status(403).json({ error: 'الدخول التجريبي معطل من الإدارة.' });
     const user = db.prepare('SELECT * FROM users WHERE verified = 1 ORDER BY id ASC LIMIT 1').get();
     if (!user) return res.status(404).json({ error: 'لا يوجد مستخدم تجريبي متاح.' });
     const token = issueToken(user);
@@ -373,6 +507,7 @@ app.post('/api/demo-login', async (req, res) => {
 // Register
 app.post('/api/register', async (req, res) => {
   try {
+    if (!platform.getSettings().registrationEnabled) return res.status(403).json({ error: 'التسجيل الجديد متوقف مؤقتاً.' });
     let { displayName, method, identifier, password } = req.body;
     if (!displayName || !method || !identifier || !password) {
       return res.status(400).json({ error: 'الرجاء تعبئة جميع الحقول.' });
@@ -411,6 +546,7 @@ app.post('/api/register', async (req, res) => {
       const info = db.prepare(`INSERT INTO users (display_name, email, phone, password_hash, verified, avatar_color, created_at)
         VALUES (?, ?, ?, ?, 0, ?, ?)`).run(displayName, email, phone, password_hash, pickAvatarColor(), Date.now());
       user = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
+      user = store.updateUser(user.id, { coins: platform.getSettings().defaultCoins });
     }
 
     const code = genCode();
@@ -473,6 +609,7 @@ app.post('/api/resend', async (req, res) => {
 
 // Login
 app.post('/api/login', async (req, res) => {
+  if (platform.getSettings().maintenanceMode) return res.status(503).json({ error: 'المنصة في وضع الصيانة، حاول لاحقاً.' });
   const { identifier, password } = req.body;
   if (!identifier || !password) return res.status(400).json({ error: 'الرجاء إدخال البيانات.' });
   const id = identifier.trim().toLowerCase();
@@ -509,7 +646,8 @@ app.post('/api/wallet/topup', authMiddleware, (req, res) => {
 
 // Gifts Catalog
 app.get('/api/gifts', (req, res) => {
-  res.json({ gifts: GIFTS_CATALOG });
+  if (!platform.getSettings().giftsEnabled) return res.json({ gifts: [] });
+  res.json({ gifts: GIFTS_CATALOG.filter(g => g.enabled !== false) });
 });
 
 // Get Active Live Streams
@@ -665,7 +803,10 @@ io.on('connection', (socket) => {
 
   // Floating Live Comments
   socket.on('stream:comment', ({ streamId, body }) => {
+    const settings = platform.getSettings();
+    if (!settings.commentsEnabled) return socket.emit('error:toast', { message: 'التعليقات معطلة حالياً.' });
     if (!body || !body.trim()) return;
+    body = String(body).slice(0, settings.maxMessageLength);
     const commentPayload = {
       id: Date.now(),
       streamId,
@@ -692,7 +833,8 @@ io.on('connection', (socket) => {
 
   // Sending Gifts (LiveChat Virtual Gifts)
   socket.on('stream:gift', ({ streamId, giftId }) => {
-    const gift = GIFTS_CATALOG.find(g => g.id === giftId);
+    if (!platform.getSettings().giftsEnabled) return socket.emit('error:toast', { message: 'الهدايا معطلة حالياً.' });
+    const gift = GIFTS_CATALOG.find(g => g.id === giftId && g.enabled !== false);
     const stream = activeLiveStreams.get(streamId);
     if (!gift || !stream) return;
 
@@ -735,7 +877,9 @@ io.on('connection', (socket) => {
 
   // ---------- 1:1 Direct Chat & WebRTC ----------
   socket.on('chat:send', ({ to, body }) => {
+    const maxLength = platform.getSettings().maxMessageLength;
     if (!to || !body || !body.trim()) return;
+    body = String(body).slice(0, maxLength);
     const info = db.prepare(`INSERT INTO messages (from_user_id, to_user_id, body, created_at, is_read)
       VALUES (?, ?, ?, ?, 0)`).run(uid, to, body.trim(), Date.now());
     const payload = { id: info.lastInsertRowid, from: uid, to, body: body.trim(), createdAt: Date.now() };
@@ -744,6 +888,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('call:invite', ({ to, isVideo = true }) => {
+    if (!platform.getSettings().callsEnabled) return socket.emit('error:toast', { message: 'المكالمات معطلة حالياً.' });
     io.to(`user:${to}`).emit('call:invite', { from: socket.user, isVideo });
   });
   socket.on('call:accept', ({ to }) => io.to(`user:${to}`).emit('call:accept', { from: uid }));

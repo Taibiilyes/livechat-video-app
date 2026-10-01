@@ -77,7 +77,38 @@ async function runTests() {
     if (lb.status !== 200 || !Array.isArray(lb.body.topStreamers)) throw new Error('Leaderboard failed');
     console.log(`7. Top Streamers & Gifters Leaderboard: PASSED ✅`);
 
-    console.log('\n🎉 ALL 7 LIVECHAT TESTS PASSED 100% SUCCESSFULLY! 🎉\n');
+    // 8. Admin Authentication
+    const adminLogin = await request('/api/admin/login', 'POST', {
+      email: process.env.ADMIN_EMAIL || 'servinfoh@gmail.com',
+      password: process.env.ADMIN_PASSWORD || 'TaTe1989'
+    });
+    if (adminLogin.status !== 200 || !adminLogin.body.token) throw new Error('Admin login failed');
+    const adminToken = adminLogin.body.token;
+    console.log('8. Admin Secure Authentication: PASSED ✅');
+
+    // 9. User & Content Management
+    const [adminUsers, adminStreams, adminMessages] = await Promise.all([
+      request('/api/admin/users', 'GET', null, adminToken),
+      request('/api/admin/streams', 'GET', null, adminToken),
+      request('/api/admin/messages', 'GET', null, adminToken)
+    ]);
+    if (adminUsers.status !== 200 || adminStreams.status !== 200 || adminMessages.status !== 200) throw new Error('Admin content tools failed');
+    console.log('9. Admin Users, Streams & Moderation Tools: PASSED ✅');
+
+    // 10. Platform Settings, Gifts & Audit
+    const [settings, adminGifts, audit] = await Promise.all([
+      request('/api/admin/settings', 'GET', null, adminToken),
+      request('/api/admin/gifts', 'GET', null, adminToken),
+      request('/api/admin/audit', 'GET', null, adminToken)
+    ]);
+    if (settings.status !== 200 || adminGifts.status !== 200 || audit.status !== 200) throw new Error('Admin platform controls failed');
+    const saveSettings = await request('/api/admin/settings', 'PATCH', settings.body.settings, adminToken);
+    const tempAnnouncement = await request('/api/admin/announcements', 'POST', { title: 'اختبار آلي', body: 'إعلان مؤقت للاختبار', type: 'info' }, adminToken);
+    if (saveSettings.status !== 200 || tempAnnouncement.status !== 201) throw new Error('Admin write controls failed');
+    await request(`/api/admin/announcements/${tempAnnouncement.body.announcement.id}`, 'DELETE', null, adminToken);
+    console.log('10. Admin Platform Settings, Gifts, Announcements & Audit: PASSED ✅');
+
+    console.log('\n🎉 ALL 10 LIVECHAT TESTS PASSED 100% SUCCESSFULLY! 🎉\n');
     process.exit(0);
   } catch (err) {
     console.error('❌ Test failed with error:', err.message);

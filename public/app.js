@@ -19,6 +19,7 @@
     pendingCode: null,
     currentCategory: 'all',
     studioStream: null,
+    platformConfig: null,
     call: { pc: null, peerId: null, localStream: null, iceQueue: [], role: null },
   };
 
@@ -53,6 +54,26 @@
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw { status: res.status, ...data };
     return data;
+  }
+
+  async function loadPlatformConfig() {
+    try {
+      const config = await api('/api/config');
+      state.platformConfig = config;
+      document.title = `${config.siteName} — البث المباشر والمكالمات والهدايا`;
+      ['#auth-site-name', '#header-site-name'].forEach(s => { const el=$(s); if(el) el.textContent=config.siteName; });
+      ['#auth-version', '#header-version'].forEach(s => { const el=$(s); if(el) el.textContent=`الإصدار ${config.version}`; });
+      if ($('#auth-tagline')) $('#auth-tagline').textContent = config.tagline;
+      document.documentElement.style.setProperty('--primary-gradient', `linear-gradient(135deg, ${config.primaryColor}, ${config.secondaryColor})`);
+      const box = $('#platform-announcements');
+      const announcement = (config.announcements || [])[0];
+      if (box) {
+        if (announcement) { box.textContent = `${announcement.title}: ${announcement.body}`; box.className = `platform-announcements ${announcement.type || 'info'}`; }
+        else box.className = 'platform-announcements hidden';
+      }
+      if ($('#btn-quick-demo')) $('#btn-quick-demo').classList.toggle('hidden', !config.demoLoginEnabled);
+      if (config.maintenanceMode) toast('⚠️ المنصة في وضع الصيانة');
+    } catch (e) { console.warn('Platform config unavailable'); }
   }
 
   // ---------------- Quick Demo Login ----------------
@@ -839,6 +860,8 @@
       updateUserUI();
     });
     state.socket.on('error:toast', ({ message }) => toast(message));
+    state.socket.on('platform:config', () => loadPlatformConfig());
+    state.socket.on('platform:announcement', () => loadPlatformConfig());
 
     // Direct Chat events
     state.socket.on('chat:message', (m) => {
@@ -867,6 +890,7 @@
 
   // ---------------- Boot ----------------
   async function boot() {
+    await loadPlatformConfig();
     if (!state.token) { showScreen('auth-view'); return; }
     try {
       const data = await api('/api/me');
