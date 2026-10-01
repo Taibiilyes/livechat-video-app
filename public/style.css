@@ -906,7 +906,7 @@ input[type="text"]:focus, input[type="password"]:focus { border-color: #ec4899; 
 }
 
 /* =========================================================
-   LIGHT PASTEL THEME — Version 1.6.4
+   LIGHT PASTEL THEME — Version 1.6.5
    ========================================================= */
 :root {
   --bg-dark: #f7f8ff;
@@ -1178,3 +1178,19 @@ body.livechat-theme{height:100dvh;min-height:100dvh;overscroll-behavior-y:none}
 #auth-view>.auth-card,#verify-view>.auth-card{flex:0 0 auto;margin-block:auto;max-height:none}
 #register-form,#login-form,#verify-form{touch-action:pan-y}
 @media(max-width:520px){#auth-view.screen,#verify-view.screen{padding-inline:10px}.auth-card{padding-bottom:28px}}
+
+/* =========================================================
+   ANIMATED AMBIENT BACKGROUNDS — lightweight, theme-aware
+   ========================================================= */
+#auth-view.screen,#verify-view.screen,.app-main-shell.screen{position:relative;isolation:isolate;background:var(--theme-background)!important}
+#auth-view.screen::before,#verify-view.screen::before,.app-main-shell.screen::before{content:"";position:absolute;z-index:-2;inset:-32%;pointer-events:none;background:radial-gradient(circle at 18% 28%,color-mix(in srgb,var(--primary-color) 34%,transparent) 0 11%,transparent 34%),radial-gradient(circle at 76% 22%,color-mix(in srgb,var(--secondary-color) 32%,transparent) 0 10%,transparent 33%),radial-gradient(circle at 68% 79%,color-mix(in srgb,var(--primary-color) 24%,transparent) 0 9%,transparent 31%),radial-gradient(circle at 25% 78%,color-mix(in srgb,var(--secondary-color) 22%,transparent) 0 8%,transparent 29%);animation:lumaAmbientDrift 20s ease-in-out infinite alternate;will-change:transform}
+#auth-view.screen::after,#verify-view.screen::after,.app-main-shell.screen::after{content:"";position:absolute;z-index:-1;inset:0;pointer-events:none;opacity:.38;background-image:radial-gradient(circle,color-mix(in srgb,var(--primary-color) 34%,transparent) 1.2px,transparent 1.8px),radial-gradient(circle,color-mix(in srgb,var(--secondary-color) 28%,transparent) 1px,transparent 1.6px);background-position:0 0,18px 18px;background-size:38px 38px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.78),transparent 72%);animation:lumaSparkleFlow 26s linear infinite}
+.app-main-shell>.livechat-top-bar,.app-main-shell>.platform-announcements,.app-main-shell>.livechat-viewport,.app-main-shell>.livechat-bottom-nav{position:relative;z-index:1}
+.app-main-shell>.livechat-viewport{background:transparent!important}
+.auth-card,.explore-header-banner,.stream-card,.broadcast-studio-card,.profile-card,.lb-rank-card,.messages-layout{backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px)}
+.auth-card,.profile-card,.broadcast-studio-card,.messages-layout{box-shadow:0 18px 55px color-mix(in srgb,var(--secondary-color) 14%,rgba(35,31,55,.12))}
+@keyframes lumaAmbientDrift{0%{transform:translate3d(-2%,0,0) scale(1) rotate(0deg)}45%{transform:translate3d(5%,-3%,0) scale(1.07) rotate(3deg)}100%{transform:translate3d(-1%,6%,0) scale(1.13) rotate(-2deg)}}
+@keyframes lumaSparkleFlow{to{background-position:76px 114px,94px 132px}}
+body[data-theme="dark"] #auth-view.screen::before,body[data-theme="dark"] #verify-view.screen::before,body[data-theme="dark"] .app-main-shell.screen::before,body[data-theme="aurora"] #auth-view.screen::before,body[data-theme="aurora"] #verify-view.screen::before,body[data-theme="aurora"] .app-main-shell.screen::before{opacity:.72}
+@media(max-width:760px){#auth-view.screen::before,#verify-view.screen::before,.app-main-shell.screen::before{inset:-20%;animation-duration:24s}.app-main-shell.screen::after{opacity:.25;background-size:46px 46px}.stream-card{backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}}
+@media(prefers-reduced-motion:reduce){#auth-view.screen::before,#verify-view.screen::before,.app-main-shell.screen::before,#auth-view.screen::after,#verify-view.screen::after,.app-main-shell.screen::after{animation:none!important}.livechat-viewport{scroll-behavior:auto}}
