@@ -6,7 +6,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const dataDir = path.join(__dirname, 'data');
+const dataDir = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : path.join(__dirname, 'data');
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
@@ -107,7 +109,8 @@ try {
 
   console.log('✅ Connected to SQLite database using better-sqlite3 (schema ready).');
 } catch (nativeErr) {
-  console.warn('⚠️ Native better-sqlite3 driver not compiled. Using embedded robust JSON-DB engine.');
+  console.warn('⚠️ better-sqlite3 unavailable (' + (nativeErr && nativeErr.message ? nativeErr.message.split('\n')[0] : nativeErr) + ').');
+  console.warn('   → Falling back to the embedded JSON-DB engine.');
 
   const jsonDbPath = path.join(dataDir, 'app_data.json');
 
@@ -146,6 +149,31 @@ try {
     save: persist,
     prepare: (sql) => {
       const cleanSql = sql.replace(/\s+/g, ' ').trim();
+
+      // Maps an INSERT statement's column list to its values, correctly
+      // handling a mix of placeholders (?) and inline literals (1, 'x', ...).
+      function parseInsert(params) {
+        const m = cleanSql.match(/INSERT INTO \w+\s*\(([^)]*)\)\s*VALUES\s*\(([^)]*)\)/i);
+        if (!m) return null;
+        const cols = m[1].split(',').map(c => c.trim());
+        const vals = m[2].split(',').map(v => v.trim());
+        const row = {};
+        let pi = 0;
+        cols.forEach((col, i) => {
+          const v = vals[i];
+          if (v === undefined) return;
+          if (v === '?') {
+            row[col] = params[pi++];
+          } else if (/^'.*'$/.test(v)) {
+            row[col] = v.slice(1, -1);
+          } else if (/^-?\d+(\.\d+)?$/.test(v)) {
+            row[col] = Number(v);
+          } else {
+            row[col] = v;
+          }
+        });
+        return row;
+      }
 
       return {
         get: (...params) => {
@@ -240,20 +268,21 @@ try {
           // 1. INSERT INTO users
           if (/INSERT INTO users/i.test(cleanSql)) {
             const newId = (tables.users.length > 0 ? Math.max(...tables.users.map(u => u.id)) : 0) + 1;
+            const parsed = parseInsert(params) || {};
             const newUser = {
               id: newId,
-              display_name: params[0],
-              email: params[1],
-              phone: params[2],
-              password_hash: params[3],
-              verified: params[4] !== undefined ? params[4] : 0,
-              avatar_color: params[5] || '#4f46e5',
-              avatar_img: params[6] || `https://api.dicebear.com/7.x/bottts/svg?seed=user_${newId}`,
+              display_name: parsed.display_name,
+              email: parsed.email,
+              phone: parsed.phone,
+              password_hash: parsed.password_hash,
+              verified: Number(parsed.verified) === 1 ? 1 : 0,
+              avatar_color: parsed.avatar_color || '#4f46e5',
+              avatar_img: parsed.avatar_img || `https://api.dicebear.com/7.x/bottts/svg?seed=user_${newId}`,
               coins: 500, // Initial free welcome balance
               diamonds: 0,
               level: 1,
               followers_count: Math.floor(Math.random() * 50 + 10),
-              created_at: Date.now()
+              created_at: parsed.created_at || Date.now()
             };
             tables.users.push(newUser);
             persist();
@@ -269,16 +298,17 @@ try {
           // 3. INSERT INTO verification_codes
           if (/INSERT INTO verification_codes/i.test(cleanSql)) {
             const newId = (tables.verification_codes.length > 0 ? Math.max(...tables.verification_codes.map(c => c.id)) : 0) + 1;
+            const p = parseInsert(params) || {};
             const newCode = {
               id: newId,
-              user_id: parseInt(params[0], 10),
-              code: String(params[1]),
-              channel: params[2],
-              target: params[3],
-              purpose: 'register',
-              expires_at: params[4] || (Date.now() + 600000),
-              used: 0,
-              created_at: Date.now()
+              user_id: parseInt(p.user_id, 10),
+              code: String(p.code),
+              channel: p.channel,
+              target: p.target,
+              purpose: p.purpose || 'register',
+              expires_at: p.expires_at || (Date.now() + 600000),
+              used: Number(p.used) === 1 ? 1 : 0,
+              created_at: p.created_at || Date.now()
             };
             tables.verification_codes.push(newCode);
             persist();
@@ -300,13 +330,14 @@ try {
           // 5. INSERT INTO messages
           if (/INSERT INTO messages/i.test(cleanSql)) {
             const newId = (tables.messages.length > 0 ? Math.max(...tables.messages.map(m => m.id)) : 0) + 1;
+            const pm = parseInsert(params) || {};
             const newMsg = {
               id: newId,
-              from_user_id: parseInt(params[0], 10),
-              to_user_id: parseInt(params[1], 10),
-              body: params[2],
-              created_at: Date.now(),
-              is_read: 0
+              from_user_id: parseInt(pm.from_user_id, 10),
+              to_user_id: parseInt(pm.to_user_id, 10),
+              body: pm.body,
+              created_at: pm.created_at || Date.now(),
+              is_read: Number(pm.is_read) === 1 ? 1 : 0
             };
             tables.messages.push(newMsg);
             persist();

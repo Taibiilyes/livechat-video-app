@@ -6,6 +6,7 @@ services:
     region: frankfurt
     buildCommand: npm install --omit=dev
     startCommand: node server.js
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
@@ -17,3 +18,12 @@ services:
         sync: false
       - key: GMAIL_APP_PASSWORD
         sync: false
+      # Where the database files live. On the free plan the filesystem is
+      # ephemeral (data is lost on every deploy/restart). To keep data,
+      # upgrade the plan and attach a disk, then set DATA_DIR=/var/data:
+      #   disk:
+      #     name: livechat-data
+      #     mountPath: /var/data
+      #     sizeGB: 1
+      - key: DATA_DIR
+        value: ./data
