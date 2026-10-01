@@ -66,6 +66,12 @@ async function runTests() {
     });
     if (adminLogin.status !== 200 || !adminLogin.body.token) throw new Error('Admin login failed');
     const adminToken = adminLogin.body.token;
+    const ownerUserLogin = await request('/api/login', 'POST', {
+      identifier: process.env.ADMIN_EMAIL || 'servinfoh@gmail.com',
+      password: process.env.ADMIN_PASSWORD || 'TaTe1989'
+    });
+    const adminSso = ownerUserLogin.body?.token ? await request('/api/admin/sso', 'POST', {}, ownerUserLogin.body.token) : { status: 0 };
+    if (adminSso.status !== 200 || !adminSso.body.token) throw new Error('One-click Admin Center access failed');
     const walletSetup = await request('/api/admin/payment-methods', 'POST', {
       network: 'TRC20', account: 'TTestWalletAddress1234567890'
     }, adminToken);
@@ -96,7 +102,7 @@ async function runTests() {
     console.log(`7. Top Streamers & Gifters Leaderboard: PASSED ✅`);
 
     // 8. Admin Authentication
-    console.log('8. Owner Authentication & USDT Wallet Control: PASSED ✅');
+    console.log('8. Owner One-Click Admin Center & USDT Wallet Control: PASSED ✅');
 
     // 9. User & Content Management
     const [adminUsers, adminStreams, adminMessages] = await Promise.all([

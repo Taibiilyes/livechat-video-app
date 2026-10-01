@@ -10,7 +10,7 @@ const DEFAULT_SETTINGS = {
   tagline: 'منصة البث المباشر والتفاعل والهدايا والمكالمات الفورية',
   taglineEn: 'Live streaming, social interaction, gifts and instant video calls',
   taglineFr: 'Diffusion en direct, interactions, cadeaux et appels vidéo instantanés',
-  version: '1.6.0',
+  version: '1.6.1',
   supportEmail: 'support@lumalive.app',
   primaryColor: '#ff72ad',
   secondaryColor: '#9b8afb',
@@ -74,7 +74,7 @@ try {
 } catch (e) {
   console.error('Failed to load platform settings:', e.message);
 }
-if (['1.2.0','1.3.0','1.4.0','1.5.0'].includes(state.settings.version)) state.settings.version = '1.6.0';
+if (['1.2.0','1.3.0','1.4.0','1.5.0','1.6.0'].includes(state.settings.version)) state.settings.version = '1.6.1';
 // One-time migration: the platform now accepts USDT in USD only.
 if (!state.paymentMethods.some(m => m.id === 'usdt') || state.paymentMethods.some(m => ['ccp','baridimob'].includes(m.id))) {
   state.paymentMethods = DEFAULT_PAYMENT_METHODS.map(m => ({ ...m }));

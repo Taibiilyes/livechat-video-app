@@ -145,6 +145,7 @@
   window.addEventListener('language:changed', () => {
     const activeMethod = $(`#reg-method .seg[data-method="${regMethod}"]`);
     if (activeMethod) activeMethod.click();
+    if (state.me) updateUserUI();
     if (state.platformConfig) loadPlatformConfig();
   });
 
@@ -276,9 +277,16 @@
     if (profDiamonds) profDiamonds.textContent = (state.me.diamonds || 0).toLocaleString();
     const profFollowers = $('#prof-followers');
     if (profFollowers) profFollowers.textContent = state.me.followersCount || 12;
-    const roleLabels = { owner: 'المالك', admin: 'مسؤول', moderator: 'مراقب', seller: 'بائع عملات', member: 'عضو' };
+    const roleLabels = {
+      ar: { owner: 'المالك', admin: 'مسؤول', moderator: 'مراقب', seller: 'بائع عملات', member: 'عضو' },
+      en: { owner: 'Owner', admin: 'Administrator', moderator: 'Moderator', seller: 'Coin seller', member: 'Member' },
+      fr: { owner: 'Propriétaire', admin: 'Administrateur', moderator: 'Modérateur', seller: 'Vendeur de pièces', member: 'Membre' }
+    };
+    const lang = window.I18N?.current() || 'ar';
     const profLevel = $('#prof-level');
-    if (profLevel) profLevel.textContent = `${roleLabels[state.me.role] || 'عضو'} · Lv. ${state.me.level || 1}`;
+    if (profLevel) profLevel.textContent = `${roleLabels[lang]?.[state.me.role] || roleLabels.ar.member} · Lv. ${state.me.level || 1}`;
+    const staffEntry = $('#staff-admin-entry');
+    if (staffEntry) staffEntry.classList.toggle('hidden', !['owner', 'admin', 'moderator', 'seller'].includes(state.me.role));
   }
 
   $('#btn-logout').addEventListener('click', () => {
@@ -286,6 +294,22 @@
     state.token = null; state.me = null;
     if (state.socket) state.socket.disconnect();
     showScreen('auth-view');
+  });
+
+  $('#btn-open-admin').addEventListener('click', async () => {
+    const btn = $('#btn-open-admin');
+    btn.disabled = true;
+    const old = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    try {
+      const session = await api('/api/admin/sso', { method: 'POST', body: JSON.stringify({}) });
+      localStorage.setItem('admin_token', session.token);
+      window.location.href = '/admin';
+    } catch (err) {
+      toast(err.error || 'لا تملك صلاحية دخول لوحة التحكم');
+      btn.disabled = false;
+      btn.innerHTML = old;
+    }
   });
 
   // ---------------- Navigation Tabs Switching ----------------

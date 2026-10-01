@@ -243,6 +243,16 @@ app.post('/api/admin/logout', (req, res) => {
   res.json({ ok: true });
 });
 
+// One-click secure transition from a signed-in staff profile to the Admin Center.
+app.post('/api/admin/sso', authMiddleware, (req, res) => {
+  if (!STAFF_ROLES.includes(userRole(req.user))) {
+    return res.status(403).json({ error: 'هذا الحساب لا يملك صلاحية دخول لوحة التحكم.' });
+  }
+  const token = issueAdminToken(req.user);
+  platform.addAudit(req.user.email || req.user.phone, 'دخول لوحة التحكم', `رتبة: ${userRole(req.user)}`);
+  res.json({ ok: true, token, role: userRole(req.user), permissions: permissionsFor(req.user) });
+});
+
 app.get('/api/admin/me', adminMiddleware, (req, res) => {
   res.json({ admin: { id: req.admin.id, displayName: req.admin.display_name, email: req.admin.email, role: userRole(req.admin), permissions: permissionsFor(req.admin) } });
 });
@@ -411,7 +421,7 @@ app.patch('/api/admin/settings', adminMiddleware, permit('manageSettings'), (req
     tagline: String(b.tagline || '').trim().slice(0, 160),
     taglineEn: String(b.taglineEn || '').trim().slice(0, 160),
     taglineFr: String(b.taglineFr || '').trim().slice(0, 160),
-    version: String(b.version || '1.6.0').trim().slice(0, 20),
+    version: String(b.version || '1.6.1').trim().slice(0, 20),
     supportEmail: String(b.supportEmail || '').trim().slice(0, 100),
     primaryColor: /^#[0-9a-f]{6}$/i.test(b.primaryColor) ? b.primaryColor : '#ff72ad',
     secondaryColor: /^#[0-9a-f]{6}$/i.test(b.secondaryColor) ? b.secondaryColor : '#9b8afb',
