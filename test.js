@@ -1,5 +1,5 @@
 /**
- * Automated Test Suite for LiveChat Live Streaming Platform.
+ * Automated Test Suite for LumaLive Live Streaming Platform.
  */
 
 const http = require('http');
@@ -33,7 +33,7 @@ function request(path, method = 'GET', body = null, token = null) {
 }
 
 async function runTests() {
-  console.log('🧪 Starting Tests for LiveChat Live Streaming Platform...\n');
+  console.log('🧪 Starting Tests for LumaLive Live Streaming Platform...\n');
 
   try {
     // 1. Health
@@ -128,17 +128,18 @@ async function runTests() {
 
     // 12. Role-based permissions: seller can confirm payments but cannot edit platform settings
     const sellerEmail = `seller-${Date.now()}@test.local`;
-    const sellerCreate = await request('/api/admin/users', 'POST', { displayName: 'بائع اختبار', email: sellerEmail, password: 'seller123', role: 'seller', verified: true }, adminToken);
+    const sellerCreate = await request('/api/admin/users', 'POST', { displayName: 'بائع اختبار', email: sellerEmail, password: 'seller123', role: 'seller', language: 'fr', verified: true }, adminToken);
     const sellerLogin = await request('/api/admin/login', 'POST', { email: sellerEmail, password: 'seller123' });
     if (sellerCreate.status !== 201 || sellerLogin.status !== 200) throw new Error('Seller role setup failed');
     const sellerPayments = await request('/api/admin/payments', 'GET', null, sellerLogin.body.token);
+    const sellerRecord = await request(`/api/admin/users?q=${encodeURIComponent(sellerEmail)}`, 'GET', null, adminToken);
     const sellerSettings = await request('/api/admin/settings', 'GET', null, sellerLogin.body.token);
     const sellerWalletEdit = await request('/api/admin/payment-methods', 'POST', { network: 'TRC20', account: 'TUnauthorizedWallet12345' }, sellerLogin.body.token);
     await request(`/api/admin/users/${sellerCreate.body.id}`, 'DELETE', null, adminToken);
-    if (sellerPayments.status !== 200 || sellerSettings.status !== 403 || sellerWalletEdit.status !== 403) throw new Error('Role permission enforcement failed');
-    console.log('12. Owner, Admin, Moderator, Seller & Member Permissions: PASSED ✅');
+    if (sellerPayments.status !== 200 || sellerSettings.status !== 403 || sellerWalletEdit.status !== 403 || sellerRecord.body.users?.[0]?.language !== 'fr') throw new Error('Role or language enforcement failed');
+    console.log('12. Roles, Permissions & Account Language: PASSED ✅');
 
-    console.log('\n🎉 ALL 12 LIVECHAT TESTS PASSED 100% SUCCESSFULLY! 🎉\n');
+    console.log('\n🎉 ALL 12 LUMALIVE TESTS PASSED 100% SUCCESSFULLY! 🎉\n');
     process.exit(0);
   } catch (err) {
     console.error('❌ Test failed with error:', err.message);

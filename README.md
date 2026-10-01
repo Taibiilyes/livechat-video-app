@@ -1,8 +1,8 @@
-# 🌟 LiveChat — Live Streaming & Social Broadcasting Platform
+# 🌟 LumaLive — Live Streaming & Social Broadcasting Platform
 
 <p align="center">
   <img src="https://img.shields.io/badge/Node.js-20.x-green?logo=node.js&logoColor=white" alt="Node.js">
-  <img src="https://img.shields.io/badge/Style-LiveChat-purple" alt="LiveChat Style">
+  <img src="https://img.shields.io/badge/Style-LumaLive-purple" alt="LumaLive Style">
   <img src="https://img.shields.io/badge/Socket.io-4.x-black?logo=socketdotio&logoColor=white" alt="Socket.io">
   <img src="https://img.shields.io/badge/WebRTC-Live%20Broadcast-red?logo=webrtc&logoColor=white" alt="WebRTC">
   <img src="https://img.shields.io/badge/Virtual%20Gifts-Animated-gold" alt="Virtual Gifts">
@@ -16,6 +16,11 @@
 
 ## 🌟 الميزات والتفاصيل (Features)
 
+- 🌍 **واجهة متعددة اللغات:**
+  - العربية والإنجليزية والفرنسية مع دعم RTL وLTR تلقائياً.
+  - اختيار لغة الحساب أثناء التسجيل وحفظها في ملف المستخدم.
+  - تغيير اللغة لاحقاً من شاشة الدخول أو الشريط العلوي.
+  - تخصيص عناوين ووصف الواجهة لكل لغة من لوحة التحكم.
 - 🔴 **استكشاف البثوث الحية (Explore Live Streams Grid):**
   - استعراض شبكة البثوث المباشرة للستريمرز مع شارات البث المباشر وعداد المشاهدين الفوري.
   - فلاتر وتصنيفات متعددة: الكل 🌟، موسيقى 🎵، ألعاب 🎮، دردشة ومناقشات 💬.
@@ -67,7 +72,7 @@ livechat-video-app/
 ├── docker-compose.yml      # ملف تشغيل الحاويات
 ├── render.yaml             # إعدادات النشر السحابي التلقائي
 ├── public/
-│   ├── index.html          # واجهة التطبيق بأسلوب LiveChat
+│   ├── index.html          # واجهة التطبيق بأسلوب LumaLive
 │   ├── style.css           # تصميم النيون الداكن والأنيميشن التفاعلي
 │   └── app.js              # المنطق البرمجي للعميل والبث المباشر والهدايا
 └── data/                   # بيانات المستخدمين والمحفظة

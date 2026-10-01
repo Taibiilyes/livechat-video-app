@@ -6,10 +6,12 @@ fs.mkdirSync(dataDir, { recursive: true });
 const file = path.join(dataDir, 'platform_config.json');
 
 const DEFAULT_SETTINGS = {
-  siteName: 'LiveChat',
+  siteName: 'LumaLive',
   tagline: 'منصة البث المباشر والتفاعل والهدايا والمكالمات الفورية',
-  version: '1.5.0',
-  supportEmail: 'support@livechat.local',
+  taglineEn: 'Live streaming, social interaction, gifts and instant video calls',
+  taglineFr: 'Diffusion en direct, interactions, cadeaux et appels vidéo instantanés',
+  version: '1.6.0',
+  supportEmail: 'support@lumalive.app',
   primaryColor: '#ff72ad',
   secondaryColor: '#9b8afb',
   backgroundColor: '#f7f8ff',
@@ -20,7 +22,11 @@ const DEFAULT_SETTINGS = {
   borderRadius: 18,
   logoEmoji: '🎥',
   heroTitle: '🔥 أفضل البثوث المباشرة الآن',
+  heroTitleEn: '🔥 The best live streams right now',
+  heroTitleFr: '🔥 Les meilleurs directs du moment',
   heroSubtitle: 'شاهد أروع المواهب، تفاعل بالهدايا، وشارك في التحديات المباشرة',
+  heroSubtitleEn: 'Discover amazing creators, send gifts and join live challenges',
+  heroSubtitleFr: 'Découvrez des créateurs, envoyez des cadeaux et relevez des défis en direct',
   maintenanceMode: false,
   registrationEnabled: true,
   demoLoginEnabled: true,
@@ -68,7 +74,7 @@ try {
 } catch (e) {
   console.error('Failed to load platform settings:', e.message);
 }
-if (['1.2.0','1.3.0','1.4.0'].includes(state.settings.version)) state.settings.version = '1.5.0';
+if (['1.2.0','1.3.0','1.4.0','1.5.0'].includes(state.settings.version)) state.settings.version = '1.6.0';
 // One-time migration: the platform now accepts USDT in USD only.
 if (!state.paymentMethods.some(m => m.id === 'usdt') || state.paymentMethods.some(m => ['ccp','baridimob'].includes(m.id))) {
   state.paymentMethods = DEFAULT_PAYMENT_METHODS.map(m => ({ ...m }));

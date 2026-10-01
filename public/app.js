@@ -1,5 +1,5 @@
 /**
- * LiveChat Live Streaming and Social Broadcasting Client
+ * LumaLive Live Streaming and Social Broadcasting Client
  */
 
 (() => {
@@ -64,11 +64,13 @@
       document.title = `${config.siteName} — البث المباشر والمكالمات والهدايا`;
       ['#auth-site-name', '#header-site-name'].forEach(s => { const el=$(s); if(el) el.textContent=config.siteName; });
       ['#auth-version', '#header-version'].forEach(s => { const el=$(s); if(el) el.textContent=`الإصدار ${config.version}`; });
-      if ($('#auth-tagline')) $('#auth-tagline').textContent = config.tagline;
+      const lang = window.I18N?.current() || 'ar';
+      const localized = (base) => lang === 'en' ? (config[`${base}En`] || config[base]) : lang === 'fr' ? (config[`${base}Fr`] || config[base]) : config[base];
+      if ($('#auth-tagline')) $('#auth-tagline').textContent = localized('tagline');
       if ($('#auth-logo-emoji')) $('#auth-logo-emoji').textContent = config.logoEmoji || '🎥';
       if ($('#header-logo-emoji')) $('#header-logo-emoji').textContent = config.logoEmoji || '🎥';
-      if ($('#explore-hero-title')) $('#explore-hero-title').textContent = config.heroTitle;
-      if ($('#explore-hero-subtitle')) $('#explore-hero-subtitle').textContent = config.heroSubtitle;
+      if ($('#explore-hero-title')) $('#explore-hero-title').textContent = localized('heroTitle');
+      if ($('#explore-hero-subtitle')) $('#explore-hero-subtitle').textContent = localized('heroSubtitle');
       const root = document.documentElement;
       root.style.setProperty('--primary-color', config.primaryColor);
       root.style.setProperty('--secondary-color', config.secondaryColor);
@@ -99,12 +101,12 @@
       try {
         const data = await api('/api/demo-login', { method: 'POST', body: JSON.stringify({}) });
         loginSuccess(data.token, data.user);
-        toast('🎉 مرحباً بك في LiveChat!');
+        toast('🎉 مرحباً بك في LumaLive!');
       } catch (err) {
         alert(err.error || 'تعذر الدخول التجريبي');
       } finally {
         btnQuickDemo.disabled = false;
-        btnQuickDemo.innerHTML = '<i class="fa-solid fa-bolt-lightning"></i> دخول سريع فوري بحساب تجريبي';
+        btnQuickDemo.innerHTML = `<i class="fa-solid fa-bolt-lightning"></i> ${window.I18N?.t('quickDemo', window.I18N.current()) || 'دخول سريع'}`;
       }
     });
   }
@@ -128,16 +130,22 @@
       regMethod = btn.dataset.method;
       const label = $('#reg-identifier-label');
       const input = $('#reg-identifier');
+      const lang = window.I18N?.current() || 'ar';
       if (regMethod === 'email') {
-        label.textContent = 'البريد الإلكتروني';
+        label.textContent = window.I18N?.t('email', lang) || 'البريد الإلكتروني';
         input.placeholder = 'example@email.com';
         input.type = 'text';
       } else {
-        label.textContent = 'رقم الهاتف';
-        input.placeholder = '05xxxxxxxx أو 06xxxxxxxx';
+        label.textContent = window.I18N?.t('phone', lang) || 'رقم الهاتف';
+        input.placeholder = lang === 'ar' ? '05xxxxxxxx أو 06xxxxxxxx' : '+213...';
         input.type = 'text';
       }
     });
+  });
+  window.addEventListener('language:changed', () => {
+    const activeMethod = $(`#reg-method .seg[data-method="${regMethod}"]`);
+    if (activeMethod) activeMethod.click();
+    if (state.platformConfig) loadPlatformConfig();
   });
 
   // ---------------- Register ----------------
@@ -152,7 +160,7 @@
     try {
       const data = await api('/api/register', {
         method: 'POST',
-        body: JSON.stringify({ displayName, method: regMethod, identifier, password }),
+        body: JSON.stringify({ displayName, method: regMethod, identifier, password, language: $('#reg-language').value }),
       });
       state.pendingUserId = data.userId;
       state.pendingCode = data.devHint;
@@ -235,6 +243,7 @@
     state.token = token;
     state.me = user;
     localStorage.setItem('token', token);
+    if (user.language && window.I18N) window.I18N.apply(user.language);
     updateUserUI();
     showScreen('app-view');
     connectSocket();

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>LiveChat — البث المباشر والمكالمات والهدايا</title>
+<title>LumaLive — البث المباشر والمكالمات والهدايا</title>
 <link rel="stylesheet" href="/style.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
@@ -12,13 +12,14 @@
 <!-- ===================== شاشة المصادقة / الدخول ===================== -->
 <div id="auth-view" class="screen">
   <div class="auth-card">
+    <div class="auth-language-picker"><label for="auth-language-select">🌐</label><select id="auth-language-select" aria-label="Language"><option value="ar">العربية</option><option value="en">English</option><option value="fr">Français</option></select></div>
     <div class="brand">
       <div class="brand-logo-live">
         <span class="live-dot"></span>
         <span id="auth-logo-emoji">🎥</span>
       </div>
-      <h1 id="auth-site-name">LiveChat</h1>
-      <span class="version-badge" id="auth-version">الإصدار 1.5.0</span>
+      <h1 id="auth-site-name">LumaLive</h1>
+      <span class="version-badge" id="auth-version">الإصدار 1.6.0</span>
       <p class="muted" id="auth-tagline">منصة البث المباشر والتفاعل والهدايا والمكالمات الفورية</p>
     </div>
 
@@ -48,10 +49,13 @@
 
     <!-- إنشاء حساب -->
     <form id="register-form" class="panel">
-      <label>الاسم الظاهر</label>
+      <label id="reg-name-label">الاسم الظاهر</label>
       <input type="text" id="reg-name" placeholder="اسمك الكريم" required />
 
-      <label>طريقة التسجيل</label>
+      <label id="reg-language-label">لغة الحساب</label>
+      <select id="reg-language" required><option value="ar">العربية</option><option value="en">English</option><option value="fr">Français</option></select>
+
+      <label id="reg-method-label">طريقة التسجيل</label>
       <div class="segmented" id="reg-method">
         <button type="button" class="seg active" data-method="email">📧 البريد الإلكتروني</button>
         <button type="button" class="seg" data-method="phone">📱 رقم الهاتف</button>
@@ -97,7 +101,7 @@
   </div>
 </div>
 
-<!-- ===================== التطبيق الرئيسي (LiveChat Shell) ===================== -->
+<!-- ===================== التطبيق الرئيسي (LumaLive Shell) ===================== -->
 <div id="app-view" class="screen hidden app-main-shell">
   
   <!-- Top Bar -->
@@ -107,8 +111,8 @@
         <span class="live-pulse-dot"></span>
         <span class="header-logo-emoji" id="header-logo-emoji">🎥</span>
         <span class="brand-title-stack">
-          <span class="brand-name" id="header-site-name">LiveChat</span>
-          <small class="header-version" id="header-version">الإصدار 1.5.0</small>
+          <span class="brand-name" id="header-site-name">LumaLive</span>
+          <small class="header-version" id="header-version">الإصدار 1.6.0</small>
         </span>
       </div>
     </div>
@@ -124,6 +128,7 @@
     </div>
 
     <div class="top-bar-right">
+      <select id="app-language-select" class="app-language-select" aria-label="Language"><option value="ar">AR</option><option value="en">EN</option><option value="fr">FR</option></select>
       <!-- Wallet Coins Pill -->
       <div class="wallet-pill" id="btn-open-wallet" title="محفظة العملات">
         <span class="coin-icon">🪙</span>
@@ -287,7 +292,7 @@
 
   </main>
 
-  <!-- Bottom Navigation Bar (LiveChat Style) -->
+  <!-- Bottom Navigation Bar (LumaLive Style) -->
   <nav class="livechat-bottom-nav">
     <button class="nav-item active" data-target="view-explore">
       <i class="fa-solid fa-compass"></i>
@@ -461,6 +466,7 @@
 <div id="toast" class="toast hidden"></div>
 
 <script src="/socket.io/socket.io.js"></script>
+<script src="/i18n.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

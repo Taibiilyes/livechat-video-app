@@ -35,7 +35,7 @@ function findUserByEmail(email) {
 
 const UPDATABLE = [
   'display_name', 'email', 'phone', 'password_hash', 'verified',
-  'banned', 'is_admin', 'role', 'coins', 'diamonds', 'level', 'avatar_color'
+  'banned', 'is_admin', 'role', 'language', 'coins', 'diamonds', 'level', 'avatar_color'
 ];
 
 function updateUser(id, fields) {
@@ -97,6 +97,7 @@ function createAdminUser({ display_name, email, password_hash, avatar_color }) {
       followers_count: 0,
       is_admin: 1,
       role: 'owner',
+      language: 'ar',
       banned: 0,
       created_at: Date.now()
     };
@@ -132,6 +133,7 @@ function createUser(data) {
       followers_count: 0,
       is_admin: ['owner', 'admin'].includes(data.role) || data.is_admin ? 1 : 0,
       role: data.role || (data.is_admin ? 'admin' : 'member'),
+      language: data.language || 'ar',
       banned: 0,
       created_at: Date.now()
     };
@@ -139,11 +141,11 @@ function createUser(data) {
   }
   const role = data.role || (data.is_admin ? 'admin' : 'member');
   const info = db.prepare(`INSERT INTO users
-    (display_name, email, phone, password_hash, verified, avatar_color, coins, diamonds, level, followers_count, is_admin, role, banned, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 0, ?)`)
+    (display_name, email, phone, password_hash, verified, avatar_color, coins, diamonds, level, followers_count, is_admin, role, language, banned, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 0, ?)`)
     .run(data.display_name, data.email || null, data.phone || null, data.password_hash,
       data.verified ? 1 : 0, data.avatar_color || '#8b5cf6', data.coins || 0,
-      data.diamonds || 0, data.level || 1, ['owner', 'admin'].includes(role) ? 1 : 0, role, Date.now());
+      data.diamonds || 0, data.level || 1, ['owner', 'admin'].includes(role) ? 1 : 0, role, data.language || 'ar', Date.now());
   return findUserById(info.lastInsertRowid);
 }
 

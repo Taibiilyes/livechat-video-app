@@ -62,6 +62,7 @@ function publicUser(u) {
     level: u.level || 1,
     followersCount: u.followers_count || 12,
     role: userRole(u),
+    language: u.language || 'ar',
     verified: !!u.verified,
   };
 }
@@ -120,7 +121,7 @@ async function initSeedData() {
         VALUES (?, ?, ?, ?, 1, ?, ?)`).run('أمين جيمينغ 🎮', 'amine@livechat.com', '0555000003', hash, '#10b981', Date.now());
       db.prepare(`INSERT INTO users (display_name, email, phone, password_hash, verified, avatar_color, created_at)
         VALUES (?, ?, ?, ?, 1, ?, ?)`).run('نور التونسية 💃', 'nour@livechat.com', '0555000004', hash, '#f59e0b', Date.now());
-      console.log('✅ LiveChat Seed users ready.');
+      console.log('✅ LumaLive Seed users ready.');
     }
 
     // Seed default simulated active streams
@@ -287,6 +288,7 @@ app.get('/api/admin/users', adminMiddleware, permit('viewUsers'), (req, res) => 
       banned: !!u.banned,
       isAdmin: ['owner','admin'].includes(userRole(u)),
       role: userRole(u),
+      language: u.language || 'ar',
       coins: u.coins || 0,
       diamonds: u.diamonds || 0,
       level: u.level || 1,
@@ -311,7 +313,7 @@ app.post('/api/admin/users', adminMiddleware, permit('manageUsers'), async (req,
   const user = store.createUser({
     display_name: displayName, email, phone,
     password_hash: await bcrypt.hash(String(b.password), 10),
-    verified: b.verified !== false, role: requestedRole,
+    verified: b.verified !== false, role: requestedRole, language: ['ar','en','fr'].includes(b.language) ? b.language : 'ar',
     coins: Math.max(0, parseInt(b.coins, 10) || platform.getSettings().defaultCoins),
     level: Math.max(1, parseInt(b.level, 10) || 1), avatar_color: b.avatarColor
   });
@@ -330,6 +332,7 @@ app.patch('/api/admin/users/:id', adminMiddleware, permit('manageUsers'), async 
   if (b.displayName !== undefined) fields.display_name = String(b.displayName).trim();
   if (b.email !== undefined) fields.email = String(b.email || '').toLowerCase().trim() || null;
   if (b.phone !== undefined) fields.phone = normalizePhone(String(b.phone || '')) || null;
+  if (b.language !== undefined && ['ar','en','fr'].includes(b.language)) fields.language = b.language;
   if (b.avatarColor !== undefined && /^#[0-9a-f]{6}$/i.test(b.avatarColor)) fields.avatar_color = b.avatarColor;
   if (b.coins !== undefined) fields.coins = Math.max(0, parseInt(b.coins, 10) || 0);
   if (b.diamonds !== undefined) fields.diamonds = Math.max(0, parseInt(b.diamonds, 10) || 0);
@@ -404,9 +407,11 @@ app.get('/api/admin/settings', adminMiddleware, permit('manageSettings'), (req, 
 app.patch('/api/admin/settings', adminMiddleware, permit('manageSettings'), (req, res) => {
   const b = req.body || {};
   const patch = {
-    siteName: String(b.siteName || 'LiveChat').trim().slice(0, 40),
+    siteName: String(b.siteName || 'LumaLive').trim().slice(0, 40),
     tagline: String(b.tagline || '').trim().slice(0, 160),
-    version: String(b.version || '1.5.0').trim().slice(0, 20),
+    taglineEn: String(b.taglineEn || '').trim().slice(0, 160),
+    taglineFr: String(b.taglineFr || '').trim().slice(0, 160),
+    version: String(b.version || '1.6.0').trim().slice(0, 20),
     supportEmail: String(b.supportEmail || '').trim().slice(0, 100),
     primaryColor: /^#[0-9a-f]{6}$/i.test(b.primaryColor) ? b.primaryColor : '#ff72ad',
     secondaryColor: /^#[0-9a-f]{6}$/i.test(b.secondaryColor) ? b.secondaryColor : '#9b8afb',
@@ -418,7 +423,11 @@ app.patch('/api/admin/settings', adminMiddleware, permit('manageSettings'), (req
     borderRadius: Math.min(28, Math.max(8, parseInt(b.borderRadius, 10) || 18)),
     logoEmoji: String(b.logoEmoji || '🎥').trim().slice(0, 8),
     heroTitle: String(b.heroTitle || '').trim().slice(0, 100),
+    heroTitleEn: String(b.heroTitleEn || '').trim().slice(0, 100),
+    heroTitleFr: String(b.heroTitleFr || '').trim().slice(0, 100),
     heroSubtitle: String(b.heroSubtitle || '').trim().slice(0, 180),
+    heroSubtitleEn: String(b.heroSubtitleEn || '').trim().slice(0, 180),
+    heroSubtitleFr: String(b.heroSubtitleFr || '').trim().slice(0, 180),
     maintenanceMode: !!b.maintenanceMode,
     registrationEnabled: !!b.registrationEnabled,
     demoLoginEnabled: !!b.demoLoginEnabled,
@@ -482,7 +491,7 @@ app.delete('/api/admin/announcements/:id', adminMiddleware, permit('manageConten
 app.post('/api/admin/streams', adminMiddleware, permit('manageContent'), (req, res) => {
   const b = req.body || {};
   const id = `admin_stream_${Date.now()}`;
-  const stream = { id, title: String(b.title || 'بث مميز').trim().slice(0, 100), category: ['music','gaming','chat'].includes(b.category) ? b.category : 'chat', host: { id: 0, displayName: String(b.hostName || 'إدارة LiveChat').trim().slice(0, 50), avatarColor: b.avatarColor || '#9b8afb', level: 99 }, viewersCount: Math.max(1, parseInt(b.viewersCount, 10) || 1), likesCount: 0, diamondsEarned: 0, tags: ['مميز'], thumbnailGradient: 'linear-gradient(135deg, #f9a8d4, #c4b5fd)', videoUrl: String(b.videoUrl || '').trim() || '/videos/chat-live.mp4', startedAt: Date.now(), isSimulated: true };
+  const stream = { id, title: String(b.title || 'بث مميز').trim().slice(0, 100), category: ['music','gaming','chat'].includes(b.category) ? b.category : 'chat', host: { id: 0, displayName: String(b.hostName || 'إدارة LumaLive').trim().slice(0, 50), avatarColor: b.avatarColor || '#9b8afb', level: 99 }, viewersCount: Math.max(1, parseInt(b.viewersCount, 10) || 1), likesCount: 0, diamondsEarned: 0, tags: ['مميز'], thumbnailGradient: 'linear-gradient(135deg, #f9a8d4, #c4b5fd)', videoUrl: String(b.videoUrl || '').trim() || '/videos/chat-live.mp4', startedAt: Date.now(), isSimulated: true };
   activeLiveStreams.set(id, stream);
   platform.addAudit(req.admin.email, 'إنشاء بث مميز', stream.title);
   io.emit('streams:updated', { streams: Array.from(activeLiveStreams.values()) });
@@ -597,7 +606,8 @@ app.post('/api/demo-login', async (req, res) => {
 app.post('/api/register', async (req, res) => {
   try {
     if (!platform.getSettings().registrationEnabled) return res.status(403).json({ error: 'التسجيل الجديد متوقف مؤقتاً.' });
-    let { displayName, method, identifier, password } = req.body;
+    let { displayName, method, identifier, password, language } = req.body;
+    language = ['ar','en','fr'].includes(language) ? language : 'ar';
     if (!displayName || !method || !identifier || !password) {
       return res.status(400).json({ error: 'الرجاء تعبئة جميع الحقول.' });
     }
@@ -635,8 +645,9 @@ app.post('/api/register', async (req, res) => {
       const info = db.prepare(`INSERT INTO users (display_name, email, phone, password_hash, verified, avatar_color, created_at)
         VALUES (?, ?, ?, ?, 0, ?, ?)`).run(displayName, email, phone, password_hash, pickAvatarColor(), Date.now());
       user = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
-      user = store.updateUser(user.id, { coins: platform.getSettings().defaultCoins });
+      user = store.updateUser(user.id, { coins: platform.getSettings().defaultCoins, language });
     }
+    user = store.updateUser(user.id, { language });
 
     const code = genCode();
     const target = email || phone;
@@ -917,7 +928,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Sending Gifts (LiveChat Virtual Gifts)
+  // Sending Gifts (LumaLive Virtual Gifts)
   socket.on('stream:gift', ({ streamId, giftId }) => {
     if (!platform.getSettings().giftsEnabled) return socket.emit('error:toast', { message: 'الهدايا معطلة حالياً.' });
     const gift = GIFTS_CATALOG.find(g => g.id === giftId && g.enabled !== false);
@@ -1000,5 +1011,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🌟 LiveChat Platform running on http://0.0.0.0:${PORT}`);
+  console.log(`🌟 LumaLive Platform running on http://0.0.0.0:${PORT}`);
 });

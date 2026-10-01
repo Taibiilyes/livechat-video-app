@@ -38,6 +38,7 @@ try {
       followers_count INTEGER DEFAULT 0,
       is_admin INTEGER DEFAULT 0,
       role TEXT DEFAULT 'member',
+      language TEXT DEFAULT 'ar',
       banned INTEGER DEFAULT 0,
       created_at INTEGER
     );
@@ -105,6 +106,7 @@ try {
     followers_count: "INTEGER DEFAULT 0",
     is_admin: "INTEGER DEFAULT 0",
     role: "TEXT DEFAULT 'member'",
+    language: "TEXT DEFAULT 'ar'",
     banned: "INTEGER DEFAULT 0"
   };
   for (const [col, def] of Object.entries(expected)) {
@@ -139,7 +141,7 @@ try {
       console.error('Failed to parse database file, starting fresh.');
     }
   }
-  tables.users.forEach(u => { if (!u.role) u.role = u.is_admin ? 'admin' : 'member'; });
+  tables.users.forEach(u => { if (!u.role) u.role = u.is_admin ? 'admin' : 'member'; if (!u.language) u.language = 'ar'; });
 
   function persist() {
     try {
@@ -291,6 +293,7 @@ try {
               followers_count: Math.floor(Math.random() * 50 + 10),
               is_admin: Number(parsed.is_admin) === 1 ? 1 : 0,
               role: parsed.role || (Number(parsed.is_admin) === 1 ? 'admin' : 'member'),
+              language: parsed.language || 'ar',
               banned: 0,
               created_at: parsed.created_at || Date.now()
             };
