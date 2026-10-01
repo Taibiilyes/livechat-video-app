@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>لوحة التحكم — SuperLive & Tango</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin.css">
+</head>
+<body>
+
+<!-- ============ Login ============ -->
+<section id="login-view" class="login-wrap">
+  <form id="login-form" class="login-card" autocomplete="on">
+    <div class="shield">🛡️</div>
+    <h1>لوحة التحكم</h1>
+    <p class="sub">دخول الإدارة فقط — SuperLive &amp; Tango</p>
+
+    <label for="email">البريد الإلكتروني</label>
+    <input id="email" name="email" type="email" placeholder="servinfoh@gmail.com" required>
+
+    <label for="password">كلمة المرور</label>
+    <input id="password" name="password" type="password" placeholder="••••••••" required>
+
+    <button id="login-btn" type="submit">دخول آمن</button>
+    <div id="login-error" class="error" hidden></div>
+    <a class="back" href="/">← العودة إلى التطبيق</a>
+  </form>
+</section>
+
+<!-- ============ Dashboard ============ -->
+<section id="dash-view" hidden>
+  <header class="topbar">
+    <div class="brand"><span>🛡️</span> لوحة التحكم</div>
+    <div class="topbar-right">
+      <span id="admin-email" class="who"></span>
+      <button id="refresh-btn" class="ghost" title="تحديث">↻</button>
+      <button id="logout-btn" class="ghost danger">خروج</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="stats" class="stats"></div>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="users">المستخدمون</button>
+      <button class="tab" data-tab="streams">البثوث المباشرة</button>
+      <button class="tab" data-tab="messages">آخر الرسائل</button>
+    </nav>
+
+    <!-- Users -->
+    <div class="panel" id="tab-users">
+      <div class="panel-head">
+        <h2>المستخدمون</h2>
+        <input id="search" type="search" placeholder="بحث بالاسم أو البريد أو الهاتف…">
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>المستخدم</th><th>التواصل</th><th>الحالة</th>
+              <th>العملات</th><th>الألماس</th><th>المستوى</th><th>إجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="users-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Streams -->
+    <div class="panel" id="tab-streams" hidden>
+      <div class="panel-head"><h2>البثوث المباشرة</h2></div>
+      <div id="streams-list" class="cards"></div>
+    </div>
+
+    <!-- Messages -->
+    <div class="panel" id="tab-messages" hidden>
+      <div class="panel-head"><h2>آخر الرسائل</h2></div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>#</th><th>من</th><th>إلى</th><th>النص</th><th>الوقت</th></tr></thead>
+          <tbody id="messages-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+</section>
+
+<script src="/admin.js"></script>
+</body>
+</html>

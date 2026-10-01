@@ -36,6 +36,8 @@ try {
       diamonds INTEGER DEFAULT 0,
       level INTEGER DEFAULT 1,
       followers_count INTEGER DEFAULT 0,
+      is_admin INTEGER DEFAULT 0,
+      banned INTEGER DEFAULT 0,
       created_at INTEGER
     );
 
@@ -99,7 +101,9 @@ try {
     coins: "INTEGER DEFAULT 500",
     diamonds: "INTEGER DEFAULT 0",
     level: "INTEGER DEFAULT 1",
-    followers_count: "INTEGER DEFAULT 0"
+    followers_count: "INTEGER DEFAULT 0",
+    is_admin: "INTEGER DEFAULT 0",
+    banned: "INTEGER DEFAULT 0"
   };
   for (const [col, def] of Object.entries(expected)) {
     if (!userCols.includes(col)) {
@@ -282,6 +286,8 @@ try {
               diamonds: 0,
               level: 1,
               followers_count: Math.floor(Math.random() * 50 + 10),
+              is_admin: Number(parsed.is_admin) === 1 ? 1 : 0,
+              banned: 0,
               created_at: parsed.created_at || Date.now()
             };
             tables.users.push(newUser);

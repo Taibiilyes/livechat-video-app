@@ -25,5 +25,10 @@ services:
       #     name: livechat-data
       #     mountPath: /var/data
       #     sizeGB: 1
+      # Admin dashboard login (/admin) — set real values in the Render dashboard
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
       - key: DATA_DIR
         value: ./data
