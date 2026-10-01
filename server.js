@@ -8,6 +8,7 @@ const jwt = require('jsonwebtoken');
 const { Server } = require('socket.io');
 
 const db = require('./db');
+const store = require('./admin-store');
 const { sendVerificationEmail } = require('./mailer');
 const { sendVerificationSms } = require('./sms');
 
@@ -66,6 +67,35 @@ function normalizePhone(p) {
 
 function issueToken(user) {
   return jwt.sign({ uid: user.id }, JWT_SECRET, { expiresIn: '30d' });
+}
+
+function issueAdminToken(user) {
+  return jwt.sign({ uid: user.id, role: 'admin' }, JWT_SECRET, { expiresIn: '12h' });
+}
+
+// Admin account bootstrap (configurable through env vars)
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'servinfoh@gmail.com').toLowerCase().trim();
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'TaTe1989';
+const ADMIN_NAME = process.env.ADMIN_NAME || 'مدير المنصة';
+
+async function ensureAdminUser() {
+  try {
+    const hash = await bcrypt.hash(ADMIN_PASSWORD, 10);
+    const existing = store.findUserByEmail(ADMIN_EMAIL);
+    if (existing) {
+      store.updateUser(existing.id, {
+        password_hash: hash, is_admin: 1, verified: 1, banned: 0
+      });
+      console.log('🛡️  Admin account refreshed:', ADMIN_EMAIL);
+    } else {
+      store.createAdminUser({
+        display_name: ADMIN_NAME, email: ADMIN_EMAIL, password_hash: hash
+      });
+      console.log('🛡️  Admin account created:', ADMIN_EMAIL);
+    }
+  } catch (e) {
+    console.error('Failed to bootstrap admin account:', e.message);
+  }
 }
 
 // Global In-Memory Streams Map for fast realtime broadcast
@@ -136,7 +166,7 @@ async function initSeedData() {
     console.error('Seed error:', e);
   }
 }
-initSeedData();
+initSeedData().then(ensureAdminUser);
 
 // Auth Middleware
 function authMiddleware(req, res, next) {
@@ -147,12 +177,170 @@ function authMiddleware(req, res, next) {
     const payload = jwt.verify(token, JWT_SECRET);
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(payload.uid);
     if (!user) return res.status(401).json({ error: 'المستخدم غير موجود' });
+    if (user.banned) return res.status(403).json({ error: 'تم حظر هذا الحساب من قبل الإدارة.' });
     req.user = user;
     next();
   } catch (e) {
     return res.status(401).json({ error: 'جلسة غير صالحة، الرجاء تسجيل الدخول' });
   }
 }
+
+// Admin-only middleware
+function adminMiddleware(req, res, next) {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : req.cookies.admin_token;
+  if (!token) return res.status(401).json({ error: 'غير مصرح، الرجاء تسجيل الدخول كمسؤول' });
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    if (payload.role !== 'admin') return res.status(403).json({ error: 'هذه الصفحة مخصصة للمسؤولين فقط' });
+    const user = store.findUserById(payload.uid);
+    if (!user || !user.is_admin) return res.status(403).json({ error: 'صلاحيات المسؤول غير متوفرة' });
+    req.admin = user;
+    next();
+  } catch (e) {
+    return res.status(401).json({ error: 'جلسة المسؤول منتهية، الرجاء تسجيل الدخول من جديد' });
+  }
+}
+
+// ---------------- Admin Dashboard APIs ----------------
+
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+app.post('/api/admin/login', async (req, res) => {
+  try {
+    const email = String(req.body.email || '').toLowerCase().trim();
+    const password = String(req.body.password || '');
+    if (!email || !password) return res.status(400).json({ error: 'الرجاء إدخال البريد وكلمة المرور.' });
+
+    const user = store.findUserByEmail(email);
+    if (!user || !user.is_admin) {
+      return res.status(401).json({ error: 'بيانات الدخول غير صحيحة.' });
+    }
+    const ok = await bcrypt.compare(password, user.password_hash || '');
+    if (!ok) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة.' });
+
+    const token = issueAdminToken(user);
+    res.cookie('admin_token', token, { httpOnly: true, sameSite: 'lax', maxAge: 12 * 3600 * 1000 });
+    res.json({ ok: true, token, admin: { id: user.id, displayName: user.display_name, email: user.email } });
+  } catch (e) {
+    res.status(500).json({ error: 'خطأ في تسجيل دخول المسؤول: ' + e.message });
+  }
+});
+
+app.post('/api/admin/logout', (req, res) => {
+  res.clearCookie('admin_token');
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/me', adminMiddleware, (req, res) => {
+  res.json({ admin: { id: req.admin.id, displayName: req.admin.display_name, email: req.admin.email } });
+});
+
+app.get('/api/admin/stats', adminMiddleware, (req, res) => {
+  const users = store.allUsers();
+  const streams = Array.from(activeLiveStreams.values());
+  res.json({
+    totalUsers: users.length,
+    verifiedUsers: users.filter(u => u.verified).length,
+    bannedUsers: users.filter(u => u.banned).length,
+    onlineUsers: onlineUsers.size,
+    activeStreams: streams.length,
+    totalViewers: streams.reduce((n, s) => n + (s.viewersCount || 0), 0),
+    totalMessages: store.messageCount(),
+    totalCoins: users.reduce((n, u) => n + (u.coins || 0), 0),
+    totalDiamonds: users.reduce((n, u) => n + (u.diamonds || 0), 0),
+    engine: store.isFallback ? 'JSON-DB (fallback)' : 'SQLite (better-sqlite3)',
+    uptimeSeconds: Math.round(process.uptime())
+  });
+});
+
+app.get('/api/admin/users', adminMiddleware, (req, res) => {
+  const q = String(req.query.q || '').toLowerCase().trim();
+  let users = store.allUsers();
+  if (q) {
+    users = users.filter(u =>
+      (u.display_name || '').toLowerCase().includes(q) ||
+      (u.email || '').toLowerCase().includes(q) ||
+      (u.phone || '').includes(q) ||
+      String(u.id) === q
+    );
+  }
+  res.json({
+    users: users.map(u => ({
+      id: u.id,
+      displayName: u.display_name,
+      email: u.email,
+      phone: u.phone,
+      verified: !!u.verified,
+      banned: !!u.banned,
+      isAdmin: !!u.is_admin,
+      coins: u.coins || 0,
+      diamonds: u.diamonds || 0,
+      level: u.level || 1,
+      avatarColor: u.avatar_color || '#8b5cf6',
+      online: onlineUsers.has(u.id),
+      createdAt: u.created_at
+    }))
+  });
+});
+
+app.patch('/api/admin/users/:id', adminMiddleware, (req, res) => {
+  const user = store.findUserById(req.params.id);
+  if (!user) return res.status(404).json({ error: 'المستخدم غير موجود.' });
+
+  const fields = {};
+  const b = req.body || {};
+  if (b.verified !== undefined) fields.verified = b.verified ? 1 : 0;
+  if (b.banned !== undefined) fields.banned = b.banned ? 1 : 0;
+  if (b.displayName !== undefined) fields.display_name = String(b.displayName).trim();
+  if (b.coins !== undefined) fields.coins = Math.max(0, parseInt(b.coins, 10) || 0);
+  if (b.diamonds !== undefined) fields.diamonds = Math.max(0, parseInt(b.diamonds, 10) || 0);
+  if (b.level !== undefined) fields.level = Math.max(1, parseInt(b.level, 10) || 1);
+
+  if (user.is_admin && fields.banned === 1) {
+    return res.status(400).json({ error: 'لا يمكن حظر حساب مسؤول.' });
+  }
+
+  const updated = store.updateUser(user.id, fields);
+  if (fields.banned === 1) {
+    io.emit('admin:banned', { userId: user.id });
+  }
+  res.json({ ok: true, user: { id: updated.id, verified: !!updated.verified, banned: !!updated.banned, coins: updated.coins, diamonds: updated.diamonds, level: updated.level, displayName: updated.display_name } });
+});
+
+app.delete('/api/admin/users/:id', adminMiddleware, (req, res) => {
+  const user = store.findUserById(req.params.id);
+  if (!user) return res.status(404).json({ error: 'المستخدم غير موجود.' });
+  if (user.is_admin) return res.status(400).json({ error: 'لا يمكن حذف حساب مسؤول.' });
+  store.deleteUser(user.id);
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/streams', adminMiddleware, (req, res) => {
+  res.json({ streams: Array.from(activeLiveStreams.values()) });
+});
+
+app.delete('/api/admin/streams/:id', adminMiddleware, (req, res) => {
+  const id = req.params.id;
+  if (!activeLiveStreams.has(id)) return res.status(404).json({ error: 'البث غير موجود.' });
+  activeLiveStreams.delete(id);
+  io.to(`stream:${id}`).emit('stream:ended', { streamId: id, reason: 'admin' });
+  io.emit('streams:updated', { streams: Array.from(activeLiveStreams.values()) });
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/messages', adminMiddleware, (req, res) => {
+  const limit = Math.min(100, parseInt(req.query.limit, 10) || 20);
+  const rows = store.recentMessages(limit);
+  res.json({
+    messages: rows.map(m => ({
+      id: m.id, from: m.from_user_id, to: m.to_user_id,
+      body: m.body, createdAt: m.created_at
+    }))
+  });
+});
 
 // ---------------- REST APIs ----------------
 
@@ -290,6 +478,10 @@ app.post('/api/login', async (req, res) => {
 
   const ok = await bcrypt.compare(password, user.password_hash);
   if (!ok) return res.status(401).json({ error: 'كلمة المرور غير صحيحة.' });
+
+  if (user.banned) {
+    return res.status(403).json({ error: 'تم حظر هذا الحساب من قبل الإدارة.' });
+  }
 
   if (!user.verified) {
     return res.status(403).json({ error: 'الحساب غير مؤكد بعد.', needsVerification: true, userId: user.id });
