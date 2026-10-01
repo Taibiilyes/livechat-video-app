@@ -150,18 +150,27 @@
   });
 
   // ---------------- Register ----------------
-  $('#register-form').addEventListener('submit', async (e) => {
+  const registerForm = $('#register-form');
+  const registerSubmit = $('#register-submit');
+  let registrationPending = false;
+  registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (registrationPending) return;
+
     const msg = $('#register-msg');
     msg.textContent = ''; msg.className = 'form-msg';
     const displayName = $('#reg-name').value.trim();
     const identifier = $('#reg-identifier').value.trim();
     const password = $('#reg-password').value;
+    const lang = $('#reg-language').value;
 
+    registrationPending = true;
+    registerSubmit.disabled = true;
+    registerSubmit.textContent = lang === 'en' ? 'Creating account…' : lang === 'fr' ? 'Création du compte…' : 'جارٍ إنشاء الحساب…';
     try {
       const data = await api('/api/register', {
         method: 'POST',
-        body: JSON.stringify({ displayName, method: regMethod, identifier, password, language: $('#reg-language').value }),
+        body: JSON.stringify({ displayName, method: regMethod, identifier, password, language: lang }),
       });
       state.pendingUserId = data.userId;
       state.pendingCode = data.devHint;
@@ -174,8 +183,13 @@
 
       showScreen('verify-view');
     } catch (err) {
-      msg.textContent = err.error || 'حدث خطأ أثناء التسجيل';
+      msg.textContent = err.error || (lang === 'en' ? 'Could not create the account. Please try again.' : lang === 'fr' ? 'Impossible de créer le compte. Réessayez.' : 'تعذر إنشاء الحساب. حاول مجدداً.');
       msg.classList.add('error');
+      msg.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } finally {
+      registrationPending = false;
+      registerSubmit.disabled = false;
+      registerSubmit.textContent = window.I18N?.t('create', lang) || 'إنشاء الحساب';
     }
   });
 
