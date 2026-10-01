@@ -1,38 +1,41 @@
-# 💬 دردشتي المباشرة (LiveChat & Video App)
+# 🌟 SuperLive & Tango — Live Streaming & Social Broadcasting Platform
 
 <p align="center">
   <img src="https://img.shields.io/badge/Node.js-20.x-green?logo=node.js&logoColor=white" alt="Node.js">
+  <img src="https://img.shields.io/badge/Style-Tango%20%26%20SuperLive-purple" alt="Tango & SuperLive Style">
   <img src="https://img.shields.io/badge/Socket.io-4.x-black?logo=socketdotio&logoColor=white" alt="Socket.io">
-  <img src="https://img.shields.io/badge/WebRTC-Real--Time-red?logo=webrtc&logoColor=white" alt="WebRTC">
-  <img src="https://img.shields.io/badge/Express-5.x-blue?logo=express&logoColor=white" alt="Express">
+  <img src="https://img.shields.io/badge/WebRTC-Live%20Broadcast-red?logo=webrtc&logoColor=white" alt="WebRTC">
+  <img src="https://img.shields.io/badge/Virtual%20Gifts-Animated-gold" alt="Virtual Gifts">
   <img src="https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white" alt="Docker">
-  <img src="https://img.shields.io/badge/License-MIT-purple" alt="License">
+  <img src="https://img.shields.io/badge/License-MIT-blue" alt="License">
 </p>
 
-> **منصة اتصالات متكاملة للدردشة النصية الفورية ومكالمات الفيديو المباشرة عالية الدقة (P2P WebRTC) مع نظام تحقق وتسجيل آمن.**
+> **منصة متكاملة للبث المباشر (Live Video Streaming) والتفاعل الاجتماعي على غرار تطبيقات Tango و SuperLive و Bigo Live، مع نظام هدايا تفاعلية متحركة، محفظة عملات، قلوب طائرة، تعليقات حية، ومكالمات فيديو مباشرة.**
 
 ---
 
-## 🌟 الميزات الرئيسية (Features)
+## 🌟 الميزات والتفاصيل (Features)
 
-- 💬 **دردشة نصية فورية فائقة السرعة:**
-  - إرسال واستقبال فوري للرسائل عبر `Socket.io`.
-  - مؤشر الكتابة المباشر (`...يكتب الآن`).
-  - حالة المستخدمين المتصلين (`Online / Offline`) في الوقت الفعلي.
-  - سجل محادثات دائم مع حفظ حالة قراءة الرسائل.
-- 📹 **مكالمات فيديو وصوت مباشرة (WebRTC 1:1 Video Calls):**
-  - اتصال صوت وفيديو مباشر نقطة لنقطة (P2P) بجودة عالية بدون وسيط طرف ثالث.
-  - رنين التنبيه والإشعار بالمكالمات الواردة مع إمكانية القبول أو الرفض.
-  - إمكانية كتم الميكروفون أو إيقاف الكاميرا أثناء المكالمة.
-- 🔐 **نظام تسجيل ومصادقة متقدم:**
-  - تسجيل عبر البريد الإلكتروني أو رقم الهاتف.
-  - تأكيد الحساب برمز تحقق مؤقت (`OTP`).
-  - تشفير كلمات المرور باستخدام `bcryptjs` وحماية الجلسات باستخدام `JWT`.
-  - نظام محاكاة ذكي للرموز في بيئة التطوير لتسهيل التجربة دون تكاليف خارجية.
-- 🎨 **واجهة مستخدم عصرية ومتجاوبة (Responsive Glassmorphic UI):**
-  - تصميم نظيف ومريح متوافق مع كافة أحجام الشاشات (الهواتف، الأجهزة اللوحية، والحواسيب).
-  - دعم كامل للغة العربية (RTL).
-  - إشعارات منبثقة (Toasts) وصور رمزية بألوان ديناميكية.
+- 🔴 **استكشاف البثوث الحية (Explore Live Streams Grid):**
+  - استعراض شبكة البثوث المباشرة للستريمرز مع شارات البث المباشر وعداد المشاهدين الفوري.
+  - فلاتر وتصنيفات متعددة: الكل 🌟، موسيقى 🎵، ألعاب 🎮، دردشة ومناقشات 💬.
+- 🎥 **استوديو إطلاق البث المباشر (Go Live Broadcast Studio):**
+  - بدء البث المباشر بكاميرا الهاتف أو الحاسوب بنقرة واحدة.
+  - معاينة حية ومباشرة قبل الانطلاق مع تخصيص العنوان والفئة.
+- 🎁 **متجر الهدايا التفاعلية والعملات (Virtual Gifts & Wallet Economy):**
+  - متجر هدايا كامل: وردة حمراء 🌹، قلب ناري 💖، قهوة ☕، عطر فاخر ✨، صاروخ فضائي 🚀، تاج ملكي 👑، سيارة رياضية 🏎️، قصر الأحلام 🏰.
+  - لافتات وبانرات متحركة تظهر على كامل الشاشة مع مؤثرات ثلاثية الأبعاد فور إرسال الهدية.
+  - نظام محفظة العملات مع إمكانية **الشحن المجاني الفوري** بنقرة واحدة.
+- 💖 **القلوب الطائرة والتفاعل الحي (Floating Hearts & Live Comments):**
+  - تدفق التعليقات الشفافة المباشرة فوق شاشة البث في الوقت الفعلي.
+  - قلوب متحركة ملونة تصعد على الشاشة عند الضغط على زر الإعجاب أو النقر على الفيديو.
+  - زر متابعة الستريمر (Follow) مع إشعار فوري لجميع المتفرجين.
+- 🏆 **قوائم المتصدرين (Leaderboards):**
+  - ترتيب نجوم البث الأكثر حصداً للماس 💎 وكبار الداعمين VIP 🪙.
+- 💬 **محادثات ومكالمات فيديو فردية 1:1:**
+  - مكالمات فيديو وصوت خاصة ومباشرة P2P باستخدام WebRTC.
+- ⚡ **دخول فوري بحساب تجريبي (1-Click Demo Login):**
+  - تجربة كافة ميزات المنصة فورياً بضغطة زر واحدة.
 
 ---
 
@@ -40,75 +43,45 @@
 
 ```text
 livechat-video-app/
-├── server.js               # خادم Express و Socket.IO وإدارة إشارات WebRTC
-├── db.js                   # قاعدة بيانات مجهزة بمحرك هجين عالي التوافقية
-├── mailer.js               # نظام إرسال رسائل التحقق عبر البريد الإلكتروني
-├── sms.js                  # وحدة إرسال ومحاكاة رسائل التحقق عبر الهاتف
+├── server.js               # خادم البث المباشر وإدارة الغرف وإشارات WebRTC والهدايا
+├── db.js                   # قاعدة بيانات هجينة مدمجة تدعم المستخدمين والعملات
+├── mailer.js               # نظام إرسال رموز التحقق
+├── sms.js                  # وحدة إرسال ومحاكاة رسائل SMS
 ├── test.js                 # حزمة الاختبارات الآلية الشاملة
-├── Dockerfile              # حاوية Node.js خفيفة جاهزة للإنتاج
-├── docker-compose.yml      # ملف التشغيل السريع للحاويات
-├── render.yaml             # ملف النشر السحابي التلقائي على Render
-├── package.json            # الاعتماديات وحزم Node.js
+├── Dockerfile              # حاوية الإنتاج الخفيفة (Node 20 Alpine)
+├── docker-compose.yml      # ملف تشغيل الحاويات
+├── render.yaml             # إعدادات النشر السحابي التلقائي
 ├── public/
-│   ├── index.html          # هيكل واجهة المستخدم (شاشة الدخول، الدردشة، الفيديو)
-│   ├── style.css           # التصميم وتنسيقات الألوان الحديثة
-│   └── app.js              # المنطق البرمجي للعميل (WebRTC & Socket.IO Client)
-└── data/                   # مجلد حفظ بيانات المستخدمين والرسائل
+│   ├── index.html          # واجهة التطبيق بأسلوب Tango & SuperLive
+│   ├── style.css           # تصميم النيون الداكن والأنيميشن التفاعلي
+│   └── app.js              # المنطق البرمجي للعميل والبث المباشر والهدايا
+└── data/                   # بيانات المستخدمين والمحفظة
 ```
 
 ---
 
 ## 🚀 التشغيل السريع (Quick Start)
 
-### 1. التشغيل المحلي (Local Machine)
-
-تأكد من تثبيت **Node.js 18+**:
-
 ```bash
-# استنساخ المستودع
-git clone https://github.com/Taibiilyes/livechat-video-app.git
-cd livechat-video-app
-
-# تثبيت الحزم
+# 1. تثبيت الحزم
 npm install
 
-# تشغيل الخادم
+# 2. تشغيل الخادم
 npm start
-```
 
-افتح المتصفح على: `http://localhost:3000`
-
----
-
-### 2. التشغيل عبر Docker
-
-```bash
-# بناء وتشغيل الحاوية
+# أو عبر Docker
 docker compose up --build
 ```
 
+افتح المتصفح على الرابط: `http://localhost:3000`
+
 ---
 
-## 🧪 تشغيل الاختبارات الآلية (Automated Tests)
+## 🧪 تشغيل حزمة الاختبارات الآلية
 
 ```bash
 node test.js
 ```
-
----
-
-## 📡 واجهات الـ REST API
-
-| Endpoint | Method | الوصف |
-| :--- | :---: | :--- |
-| `/api/health` | `GET` | فحص صحة الخادم وعدد المتصلين |
-| `/api/register` | `POST` | تسجيل حساب جديد وإرسال رمز التحقق |
-| `/api/verify` | `POST` | تأكيد الحساب برمز OTP وإصدار التوكن |
-| `/api/resend` | `POST` | إعادة إرسال رمز تحقق جديد |
-| `/api/login` | `POST` | تسجيل الدخول واستلام رمز الجلسة JWT |
-| `/api/me` | `GET` | استرجاع بيانات الملف الشخصي للمستخدم الحالي |
-| `/api/users` | `GET` | استعراض قائمة جهات الاتصال وحالة الاتصال |
-| `/api/messages/:otherId` | `GET` | استرجاع سجل المحادثة مع مستخدم معين |
 
 ---
 

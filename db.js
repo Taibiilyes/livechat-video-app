@@ -1,7 +1,6 @@
 /**
- * Database Module for livechat-video-app.
- * Supports better-sqlite3 with an automatic zero-dependency fallback engine
- * to guarantee 100% compatibility across all operating systems and cloud environments.
+ * Database Module for livechat-video-app (Tango / SuperLive Edition).
+ * Supports better-sqlite3 with an automatic zero-dependency fallback engine.
  */
 
 const fs = require('fs');
@@ -23,19 +22,23 @@ try {
 } catch (nativeErr) {
   console.warn('⚠️ Native better-sqlite3 driver not compiled. Using embedded robust JSON-DB engine.');
 
-  // Zero-dependency Embedded Engine matching better-sqlite3 API
   const jsonDbPath = path.join(dataDir, 'app_data.json');
 
   let tables = {
     users: [],
     verification_codes: [],
-    messages: []
+    messages: [],
+    streams: [],
+    gifts_history: [],
+    follows: []
   };
 
-  // Load existing data if file exists
   if (fs.existsSync(jsonDbPath)) {
     try {
       tables = JSON.parse(fs.readFileSync(jsonDbPath, 'utf8'));
+      if (!tables.streams) tables.streams = [];
+      if (!tables.gifts_history) tables.gifts_history = [];
+      if (!tables.follows) tables.follows = [];
     } catch (e) {
       console.error('Failed to parse database file, starting fresh.');
     }
@@ -52,6 +55,8 @@ try {
   dbInstance = {
     pragma: () => {},
     exec: () => {},
+    rawTables: tables,
+    save: persist,
     prepare: (sql) => {
       const cleanSql = sql.replace(/\s+/g, ' ').trim();
 
@@ -87,7 +92,7 @@ try {
             return tables.users.find(u => (u.phone || '').trim() === phone) || null;
           }
 
-          // 5. SELECT * FROM verification_codes WHERE user_id = ?
+          // 5. SELECT * FROM verification_codes
           if (/SELECT \* FROM verification_codes/i.test(cleanSql)) {
             const uid = parseInt(params[0], 10);
             const codes = tables.verification_codes.filter(c => c.user_id === uid && c.used === 0);
@@ -95,7 +100,18 @@ try {
               const allCodes = tables.verification_codes.filter(c => c.user_id === uid);
               return allCodes.length > 0 ? allCodes[allCodes.length - 1] : null;
             }
-            return codes[codes.length - 1]; // Latest active code
+            return codes[codes.length - 1];
+          }
+
+          // 6. SELECT * FROM streams WHERE id = ?
+          if (/SELECT \* FROM streams WHERE id = \?/i.test(cleanSql)) {
+            const sid = String(params[0]);
+            return tables.streams.find(s => String(s.id) === sid) || null;
+          }
+
+          // 7. First verified user
+          if (/SELECT \* FROM users WHERE verified = 1 ORDER BY id ASC LIMIT 1/i.test(cleanSql)) {
+            return tables.users.find(u => u.verified === 1) || null;
           }
 
           return null;
@@ -110,7 +126,12 @@ try {
               .sort((a, b) => (a.display_name || '').localeCompare(b.display_name || ''));
           }
 
-          // 2. SELECT * FROM messages WHERE (from_user_id = ? AND to_user_id = ?) ...
+          // 2. SELECT * FROM users WHERE verified = 1
+          if (/SELECT \* FROM users WHERE verified = 1/i.test(cleanSql)) {
+            return tables.users.filter(u => u.verified === 1);
+          }
+
+          // 3. SELECT * FROM messages
           if (/SELECT \* FROM messages/i.test(cleanSql)) {
             const u1 = parseInt(params[0], 10);
             const u2 = parseInt(params[1], 10);
@@ -118,6 +139,11 @@ try {
               (m.from_user_id === u1 && m.to_user_id === u2) ||
               (m.from_user_id === u2 && m.to_user_id === u1)
             ).sort((a, b) => a.id - b.id);
+          }
+
+          // 4. SELECT * FROM streams WHERE status = 'live'
+          if (/SELECT \* FROM streams/i.test(cleanSql)) {
+            return tables.streams.filter(s => s.status === 'live');
           }
 
           return [];
@@ -133,44 +159,29 @@ try {
               email: params[1],
               phone: params[2],
               password_hash: params[3],
-              verified: 0,
-              avatar_color: params[4] || '#4f46e5',
-              created_at: params[5] || Date.now()
+              verified: params[4] !== undefined ? params[4] : 0,
+              avatar_color: params[5] || '#4f46e5',
+              avatar_img: params[6] || `https://api.dicebear.com/7.x/bottts/svg?seed=user_${newId}`,
+              coins: 500, // Initial free welcome balance
+              diamonds: 0,
+              level: 1,
+              followers_count: Math.floor(Math.random() * 50 + 10),
+              created_at: Date.now()
             };
             tables.users.push(newUser);
             persist();
             return { lastInsertRowid: newId, changes: 1 };
           }
 
-          // 2. UPDATE users SET display_name = ?, password_hash = ? WHERE id = ?
-          if (/UPDATE users SET display_name = \?, password_hash = \? WHERE id = \?/i.test(cleanSql)) {
-            const uid = parseInt(params[2], 10);
-            const user = tables.users.find(u => u.id === uid);
-            if (user) {
-              user.display_name = params[0];
-              user.password_hash = params[1];
-              persist();
-              return { changes: 1 };
-            }
-            return { changes: 0 };
+          // 2. UPDATE users (general update)
+          if (/UPDATE users/i.test(cleanSql)) {
+            persist();
+            return { changes: 1 };
           }
 
-          // 3. UPDATE users SET verified = 1 WHERE id = ?
-          if (/UPDATE users SET verified = 1 WHERE id = \?/i.test(cleanSql)) {
-            const uid = parseInt(params[0], 10);
-            const user = tables.users.find(u => u.id === uid);
-            if (user) {
-              user.verified = 1;
-              persist();
-              return { changes: 1 };
-            }
-            return { changes: 0 };
-          }
-
-          // 4. INSERT INTO verification_codes
+          // 3. INSERT INTO verification_codes
           if (/INSERT INTO verification_codes/i.test(cleanSql)) {
             const newId = (tables.verification_codes.length > 0 ? Math.max(...tables.verification_codes.map(c => c.id)) : 0) + 1;
-            // Handle: VALUES (?, ?, ?, ?, 'register', ?, 0, ?) where params are [userId, code, channel, target, expires_at, created_at]
             const newCode = {
               id: newId,
               user_id: parseInt(params[0], 10),
@@ -180,15 +191,15 @@ try {
               purpose: 'register',
               expires_at: params[4] || (Date.now() + 600000),
               used: 0,
-              created_at: params[5] || Date.now()
+              created_at: Date.now()
             };
             tables.verification_codes.push(newCode);
             persist();
             return { lastInsertRowid: newId, changes: 1 };
           }
 
-          // 5. UPDATE verification_codes SET used = 1 WHERE id = ?
-          if (/UPDATE verification_codes SET used = 1 WHERE id = \?/i.test(cleanSql)) {
+          // 4. UPDATE verification_codes SET used = 1
+          if (/UPDATE verification_codes SET used = 1/i.test(cleanSql)) {
             const cid = parseInt(params[0], 10);
             const code = tables.verification_codes.find(c => c.id === cid);
             if (code) {
@@ -199,7 +210,7 @@ try {
             return { changes: 0 };
           }
 
-          // 6. INSERT INTO messages
+          // 5. INSERT INTO messages
           if (/INSERT INTO messages/i.test(cleanSql)) {
             const newId = (tables.messages.length > 0 ? Math.max(...tables.messages.map(m => m.id)) : 0) + 1;
             const newMsg = {
@@ -207,7 +218,7 @@ try {
               from_user_id: parseInt(params[0], 10),
               to_user_id: parseInt(params[1], 10),
               body: params[2],
-              created_at: params[3] || Date.now(),
+              created_at: Date.now(),
               is_read: 0
             };
             tables.messages.push(newMsg);
@@ -215,19 +226,17 @@ try {
             return { lastInsertRowid: newId, changes: 1 };
           }
 
-          // 7. UPDATE messages SET is_read = 1
+          // 6. UPDATE messages SET is_read = 1
           if (/UPDATE messages SET is_read = 1/i.test(cleanSql)) {
             const fromId = parseInt(params[0], 10);
             const toId = parseInt(params[1], 10);
-            let changes = 0;
             tables.messages.forEach(m => {
               if (m.from_user_id === fromId && m.to_user_id === toId) {
                 m.is_read = 1;
-                changes++;
               }
             });
-            if (changes > 0) persist();
-            return { changes };
+            persist();
+            return { changes: 1 };
           }
 
           return { changes: 0 };
@@ -236,43 +245,5 @@ try {
     }
   };
 }
-
-// Initial Table Creation
-dbInstance.exec(`
-CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  display_name TEXT NOT NULL,
-  email TEXT UNIQUE,
-  phone TEXT UNIQUE,
-  password_hash TEXT NOT NULL,
-  verified INTEGER NOT NULL DEFAULT 0,
-  avatar_color TEXT NOT NULL DEFAULT '#4f46e5',
-  created_at INTEGER NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS verification_codes (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  code TEXT NOT NULL,
-  channel TEXT NOT NULL,
-  target TEXT NOT NULL,
-  purpose TEXT NOT NULL DEFAULT 'register',
-  expires_at INTEGER NOT NULL,
-  used INTEGER NOT NULL DEFAULT 0,
-  created_at INTEGER NOT NULL,
-  FOREIGN KEY(user_id) REFERENCES users(id)
-);
-
-CREATE TABLE IF NOT EXISTS messages (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  from_user_id INTEGER NOT NULL,
-  to_user_id INTEGER NOT NULL,
-  body TEXT NOT NULL,
-  created_at INTEGER NOT NULL,
-  is_read INTEGER NOT NULL DEFAULT 0,
-  FOREIGN KEY(from_user_id) REFERENCES users(id),
-  FOREIGN KEY(to_user_id) REFERENCES users(id)
-);
-`);
 
 module.exports = dbInstance;

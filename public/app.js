@@ -1,3 +1,7 @@
+/**
+ * SuperLive & Tango Live Streaming and Social Broadcasting Client
+ */
+
 (() => {
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => document.querySelectorAll(sel);
@@ -5,11 +9,16 @@
   const state = {
     token: localStorage.getItem('token') || null,
     me: null,
+    streams: [],
+    gifts: [],
+    activeStream: null,
     users: [],
-    activePeerId: null,
+    activeDmPeerId: null,
     socket: null,
     pendingUserId: null,
     pendingCode: null,
+    currentCategory: 'all',
+    studioStream: null,
     call: { pc: null, peerId: null, localStream: null, iceQueue: [], role: null },
   };
 
@@ -33,6 +42,10 @@
     return (name || '?').trim().charAt(0).toUpperCase();
   }
 
+  function escapeHtml(str) {
+    return (str || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  }
+
   async function api(path, options = {}) {
     const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
     if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
@@ -51,17 +64,17 @@
       try {
         const data = await api('/api/demo-login', { method: 'POST', body: JSON.stringify({}) });
         loginSuccess(data.token, data.user);
-        toast('تم تسجيل الدخول بحساب تجريبي بنجاح!');
+        toast('🎉 مرحباً بك في SuperLive & Tango!');
       } catch (err) {
         alert(err.error || 'تعذر الدخول التجريبي');
       } finally {
         btnQuickDemo.disabled = false;
-        btnQuickDemo.innerHTML = '<i class="fa-solid fa-bolt"></i> دخول سريع بحساب تجريبي فوري';
+        btnQuickDemo.innerHTML = '<i class="fa-solid fa-bolt-lightning"></i> دخول سريع فوري بحساب تجريبي';
       }
     });
   }
 
-  // ---------------- Tabs ----------------
+  // ---------------- Tabs (Login / Register) ----------------
   $$('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       $$('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -101,10 +114,6 @@
     const identifier = $('#reg-identifier').value.trim();
     const password = $('#reg-password').value;
 
-    const submitBtn = $('#register-form button[type="submit"]');
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'جارٍ إنشاء الحساب...';
-
     try {
       const data = await api('/api/register', {
         method: 'POST',
@@ -115,23 +124,14 @@
 
       $('#verify-sub').textContent = `أدخل الرمز المرسل إلى (${data.target})`;
       const codeDisplay = $('#dev-hint-code-display');
-      if (codeDisplay) {
-        codeDisplay.textContent = data.devHint || '123456';
-      }
-
-      // Auto-fill code field
+      if (codeDisplay) codeDisplay.textContent = data.devHint || '123456';
       const verifyInput = $('#verify-code');
-      if (verifyInput && data.devHint) {
-        verifyInput.value = data.devHint;
-      }
+      if (verifyInput && data.devHint) verifyInput.value = data.devHint;
 
       showScreen('verify-view');
     } catch (err) {
       msg.textContent = err.error || 'حدث خطأ أثناء التسجيل';
       msg.classList.add('error');
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'إنشاء الحساب والمتابعة';
     }
   });
 
@@ -152,49 +152,23 @@
     msg.textContent = ''; msg.className = 'form-msg';
     const code = $('#verify-code').value.trim();
 
-    const submitBtn = $('#verify-form button[type="submit"]');
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'جارٍ التحقق...';
-
     try {
       const data = await api('/api/verify', {
         method: 'POST',
         body: JSON.stringify({ userId: state.pendingUserId, code }),
       });
       loginSuccess(data.token, data.user);
-      toast('🎉 تم تأكيد حسابك وتسجيل الدخول بنجاح!');
+      toast('🎉 تم تأكيد حسابك بنجاح!');
     } catch (err) {
       msg.textContent = err.error || 'رمز التأكيد غير صحيح';
       msg.classList.add('error');
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'تأكيد الحساب';
     }
   });
 
   const backBtn = $('#back-to-login-btn');
   if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      showScreen('auth-view');
-    });
+    backBtn.addEventListener('click', () => showScreen('auth-view'));
   }
-
-  $('#resend-btn').addEventListener('click', async () => {
-    try {
-      const data = await api('/api/resend', {
-        method: 'POST',
-        body: JSON.stringify({ userId: state.pendingUserId }),
-      });
-      state.pendingCode = data.devHint;
-      const codeDisplay = $('#dev-hint-code-display');
-      if (codeDisplay) codeDisplay.textContent = data.devHint;
-      const verifyInput = $('#verify-code');
-      if (verifyInput && data.devHint) verifyInput.value = data.devHint;
-      toast(data.message || 'تم إرسال رمز جديد');
-    } catch (err) {
-      toast(err.error || 'تعذر إعادة الإرسال');
-    }
-  });
 
   // ---------------- Login ----------------
   $('#login-form').addEventListener('submit', async (e) => {
@@ -203,10 +177,6 @@
     msg.textContent = ''; msg.className = 'form-msg';
     const identifier = $('#login-identifier').value.trim();
     const password = $('#login-password').value;
-
-    const submitBtn = $('#login-form button[type="submit"]');
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'جارٍ الدخول...';
 
     try {
       const data = await api('/api/login', {
@@ -223,9 +193,6 @@
         msg.textContent = err.error || 'بيانات الدخول غير صحيحة';
         msg.classList.add('error');
       }
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'دخول';
     }
   });
 
@@ -233,150 +200,483 @@
     state.token = token;
     state.me = user;
     localStorage.setItem('token', token);
-    $('#me-name').textContent = user.displayName;
-    $('#me-sub').textContent = user.email || user.phone;
-    const av = $('#me-avatar');
-    av.textContent = initials(user.displayName);
-    av.style.background = user.avatarColor;
+    updateUserUI();
     showScreen('app-view');
     connectSocket();
-    loadUsers();
+    loadStreams();
+    loadGifts();
+    loadLeaderboard();
   }
 
-  $('#logout-btn').addEventListener('click', () => {
+  function updateUserUI() {
+    if (!state.me) return;
+    $('#user-coins-display').textContent = (state.me.coins || 0).toLocaleString();
+    $('#user-diamonds-display').textContent = (state.me.diamonds || 0).toLocaleString();
+    const drawerCoins = $('#drawer-coins-amount');
+    if (drawerCoins) drawerCoins.textContent = (state.me.coins || 0).toLocaleString();
+
+    // Profile Tab
+    const profName = $('#prof-name');
+    if (profName) profName.textContent = state.me.displayName;
+    const profSub = $('#prof-identifier');
+    if (profSub) profSub.textContent = state.me.email || state.me.phone;
+    const profAv = $('#prof-avatar');
+    if (profAv) {
+      profAv.textContent = initials(state.me.displayName);
+      profAv.style.background = state.me.avatarColor;
+    }
+    const profCoins = $('#prof-coins');
+    if (profCoins) profCoins.textContent = (state.me.coins || 0).toLocaleString();
+    const profDiamonds = $('#prof-diamonds');
+    if (profDiamonds) profDiamonds.textContent = (state.me.diamonds || 0).toLocaleString();
+    const profFollowers = $('#prof-followers');
+    if (profFollowers) profFollowers.textContent = state.me.followersCount || 12;
+  }
+
+  $('#btn-logout').addEventListener('click', () => {
     localStorage.removeItem('token');
     state.token = null; state.me = null;
     if (state.socket) state.socket.disconnect();
     showScreen('auth-view');
   });
 
-  // ---------------- Boot ----------------
-  async function boot() {
-    if (!state.token) { showScreen('auth-view'); return; }
+  // ---------------- Navigation Tabs Switching ----------------
+  $$('.tango-bottom-nav .nav-item, .tango-bottom-nav .nav-item-center').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.dataset.target;
+      if (!targetId) return;
+
+      $$('.tango-bottom-nav .nav-item').forEach(b => b.classList.remove('active'));
+      if (btn.classList.contains('nav-item')) btn.classList.add('active');
+
+      $$('.tab-view').forEach(v => v.classList.remove('active'));
+      const targetView = $(`#${targetId}`);
+      if (targetView) targetView.classList.add('active');
+
+      if (targetId === 'view-explore') loadStreams();
+      if (targetId === 'view-leaderboard') loadLeaderboard();
+      if (targetId === 'view-messages') loadDmContacts();
+      if (targetId === 'view-go-live') initStudioPreview();
+      if (targetId !== 'view-go-live') stopStudioPreview();
+    });
+  });
+
+  // Category Filter in Explore
+  $$('#category-filter-tabs .cat-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      $$('#category-filter-tabs .cat-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      state.currentCategory = tab.dataset.cat;
+      renderStreamsGrid();
+    });
+  });
+
+  // ---------------- 1. Streams Explore & Feed ----------------
+  async function loadStreams() {
     try {
-      const data = await api('/api/me');
-      loginSuccess(state.token, data.user);
-    } catch (e) {
-      localStorage.removeItem('token');
-      showScreen('auth-view');
+      const data = await api('/api/streams');
+      state.streams = data.streams || [];
+      renderStreamsGrid();
+    } catch (err) {
+      console.error('Load streams error:', err);
     }
   }
 
-  // ---------------- Users list ----------------
-  async function loadUsers() {
-    try {
-      const data = await api('/api/users');
-      state.users = data.users;
-      renderUsers();
-    } catch (e) { console.error(e); }
-  }
+  function renderStreamsGrid() {
+    const grid = $('#streams-grid-container');
+    if (!grid) return;
+    grid.innerHTML = '';
 
-  function renderUsers(filter = '') {
-    const list = $('#users-list');
-    list.innerHTML = '';
-    const f = filter.trim().toLowerCase();
-    const filtered = state.users
-      .filter(u => !f || u.displayName.toLowerCase().includes(f) || (u.email || '').includes(f) || (u.phone || '').includes(f));
+    const filtered = state.streams.filter(s => state.currentCategory === 'all' || s.category === state.currentCategory);
 
     if (filtered.length === 0) {
-      list.innerHTML = '<div style="padding:16px;text-align:center;color:#9ca3af;font-size:13px;">لا توجد جهات اتصال مطابقة.</div>';
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#9ca3af;">لا توجد بثوث نشطة في هذه الفئة حالياً. كن أول من يبدأ البث!</div>';
       return;
     }
 
-    filtered.forEach(u => {
-      const div = document.createElement('div');
-      div.className = 'user-item' + (u.id === state.activePeerId ? ' active' : '');
-      div.innerHTML = `
-        <div class="avatar" style="background:${u.avatarColor}">
-          ${initials(u.displayName)}
-          <span class="dot ${u.online ? 'online' : ''}"></span>
+    filtered.forEach(s => {
+      const card = document.createElement('div');
+      card.className = 'stream-card';
+      const gradient = s.thumbnailGradient || 'linear-gradient(135deg, #4c1d95, #ec4899)';
+
+      card.innerHTML = `
+        <div class="stream-thumb" style="background:${gradient}">
+          <div class="thumb-badges">
+            <span class="badge-live-tag"><span class="live-pulse-dot"></span> مباشر</span>
+            <span class="badge-viewers"><i class="fa-solid fa-eye"></i> ${(s.viewersCount || 1).toLocaleString()}</span>
+          </div>
+          <div class="thumb-bottom-tag">
+            <span class="vip-badge-mini">💎 ${(s.diamondsEarned || 0).toLocaleString()}</span>
+          </div>
         </div>
-        <div class="user-meta">
-          <div class="user-name">${escapeHtml(u.displayName)}</div>
-          <div class="user-sub">${u.online ? '🟢 متصل الآن' : '⚪ غير متصل'}</div>
-        </div>`;
-      div.addEventListener('click', () => openChat(u));
-      list.appendChild(div);
+        <div class="stream-info-body">
+          <div class="stream-avatar" style="background:${s.host.avatarColor || '#ec4899'}">
+            ${initials(s.host.displayName)}
+          </div>
+          <div class="stream-meta">
+            <div class="stream-title-text">${escapeHtml(s.title)}</div>
+            <div class="stream-host-row">
+              <span>${escapeHtml(s.host.displayName)}</span>
+              <span class="vip-badge-mini">Lv. ${s.host.level || 1}</span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      card.addEventListener('click', () => openLiveStreamRoom(s));
+      grid.appendChild(card);
     });
   }
 
-  $('#search-users').addEventListener('input', (e) => renderUsers(e.target.value));
+  $('#btn-start-broadcast-banner').addEventListener('click', () => {
+    $('.nav-item-center').click();
+  });
 
-  function escapeHtml(str) {
-    return (str || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  // ---------------- 2. Live Stream Room Overlay & Interaction ----------------
+  function openLiveStreamRoom(stream) {
+    state.activeStream = stream;
+    const room = $('#live-room-overlay');
+    room.classList.remove('hidden');
+
+    $('#room-host-name').textContent = stream.host.displayName;
+    $('#room-host-level').textContent = `Lv. ${stream.host.level || 1}`;
+    $('#room-diamonds-count').textContent = (stream.diamondsEarned || 0).toLocaleString();
+    $('#room-viewers-count').textContent = (stream.viewersCount || 1).toLocaleString();
+    
+    const hostAv = $('#room-host-avatar');
+    hostAv.textContent = initials(stream.host.displayName);
+    hostAv.style.background = stream.host.avatarColor || '#ec4899';
+
+    // Clear old chat
+    $('#room-chat-messages').innerHTML = '';
+
+    // Join Socket Room
+    if (state.socket) {
+      state.socket.emit('stream:join', { streamId: stream.id });
+    }
+
+    // Play placeholder video / live stream
+    const video = $('#live-stream-video');
+    if (stream.localMediaStream) {
+      video.srcObject = stream.localMediaStream;
+      video.muted = true;
+    } else {
+      video.srcObject = null;
+    }
   }
 
-  // ---------------- Chat ----------------
-  async function openChat(user) {
-    state.activePeerId = user.id;
-    renderUsers($('#search-users').value);
-    $('#chat-empty').classList.add('hidden');
-    $('#chat-active').classList.remove('hidden');
-    $('#peer-name').textContent = user.displayName;
-    $('#peer-status').textContent = user.online ? '🟢 متصل الآن' : '⚪ غير متصل';
-    const av = $('#peer-avatar');
-    av.textContent = initials(user.displayName);
-    av.style.background = user.avatarColor;
+  function closeLiveStreamRoom() {
+    if (state.activeStream && state.socket) {
+      state.socket.emit('stream:leave', { streamId: state.activeStream.id });
+    }
+    state.activeStream = null;
+    $('#live-room-overlay').classList.add('hidden');
+    loadStreams();
+  }
 
-    const data = await api(`/api/messages/${user.id}`);
-    const box = $('#messages');
-    box.innerHTML = '';
-    data.messages.forEach(m => appendMessage(m));
+  $('#btn-close-room').addEventListener('click', closeLiveStreamRoom);
+
+  // Follow Streamer Button
+  $('#btn-room-follow').addEventListener('click', () => {
+    if (!state.activeStream || !state.socket) return;
+    state.socket.emit('stream:follow', { streamId: state.activeStream.id, hostId: state.activeStream.host.id });
+    $('#btn-room-follow').textContent = '✔ تم المتابعة';
+    toast('⭐ تم متابعة البث بنجاح!');
+  });
+
+  // Live Comments
+  $('#room-comment-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = $('#room-comment-input');
+    const body = input.value.trim();
+    if (!body || !state.activeStream || !state.socket) return;
+    state.socket.emit('stream:comment', { streamId: state.activeStream.id, body });
+    input.value = '';
+  });
+
+  function appendStreamComment(c) {
+    const box = $('#room-chat-messages');
+    if (!box) return;
+    const div = document.createElement('div');
+    div.className = `live-chat-bubble ${c.isSystem ? 'system' : ''}`;
+    div.innerHTML = `
+      <span class="live-chat-user">${escapeHtml(c.user.displayName)}:</span>
+      <span class="live-chat-text">${escapeHtml(c.body)}</span>
+    `;
+    box.appendChild(div);
     box.scrollTop = box.scrollHeight;
   }
 
-  function appendMessage(m) {
-    if (m.from !== state.activePeerId && m.to !== state.activePeerId && m.from !== state.me.id) return;
-    const box = $('#messages');
+  // Flying Hearts Generator (Likes)
+  $('#btn-send-like').addEventListener('click', () => {
+    if (!state.activeStream || !state.socket) return;
+    state.socket.emit('stream:like', { streamId: state.activeStream.id });
+    spawnFlyingHeart();
+  });
+
+  function spawnFlyingHeart() {
+    const container = $('#flying-hearts-box');
+    if (!container) return;
+    const heart = document.createElement('div');
+    heart.className = 'flying-heart';
+    const icons = ['💖', '❤️', '🔥', '✨', '💜', '🌟'];
+    heart.textContent = icons[Math.floor(Math.random() * icons.length)];
+    heart.style.left = `${Math.random() * 50}px`;
+    container.appendChild(heart);
+    setTimeout(() => heart.remove(), 2500);
+  }
+
+  // ---------------- 3. Virtual Gifts System ----------------
+  async function loadGifts() {
+    try {
+      const data = await api('/api/gifts');
+      state.gifts = data.gifts || [];
+      renderGiftsGrid();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function renderGiftsGrid() {
+    const container = $('#gifts-grid-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    state.gifts.forEach(g => {
+      const btn = document.createElement('button');
+      btn.className = 'gift-card-btn';
+      btn.innerHTML = `
+        <span class="gift-item-icon">${g.icon}</span>
+        <span class="gift-item-name">${g.name}</span>
+        <span class="gift-item-price">🪙 ${g.coins}</span>
+      `;
+      btn.addEventListener('click', () => sendGift(g.id));
+      container.appendChild(btn);
+    });
+  }
+
+  $('#btn-open-gifts').addEventListener('click', () => {
+    $('#gifts-drawer-modal').classList.remove('hidden');
+    const drawerCoins = $('#drawer-coins-amount');
+    if (drawerCoins && state.me) drawerCoins.textContent = (state.me.coins || 0).toLocaleString();
+  });
+
+  $('#btn-close-gifts').addEventListener('click', () => {
+    $('#gifts-drawer-modal').classList.add('hidden');
+  });
+
+  function sendGift(giftId) {
+    if (!state.activeStream || !state.socket) return;
+    state.socket.emit('stream:gift', { streamId: state.activeStream.id, giftId });
+    $('#gifts-drawer-modal').classList.add('hidden');
+  }
+
+  function triggerGiftAnimation(event) {
+    const banner = $('#gift-animation-banner');
+    if (!banner) return;
+    $('#gift-banner-icon').textContent = event.gift.icon;
+    $('#gift-banner-sender').textContent = event.sender.displayName;
+    $('#gift-banner-desc').textContent = `أرسل ${event.gift.name} (${event.gift.coins} عملة) 🎁!`;
+    banner.classList.remove('hidden');
+
+    // Update diamonds in header
+    $('#room-diamonds-count').textContent = (event.diamondsTotal || 0).toLocaleString();
+
+    // Add chat banner
+    appendStreamComment({
+      isSystem: true,
+      user: event.sender,
+      body: `🎁 أرسل [${event.gift.name}] للمضيف!`
+    });
+
+    setTimeout(() => {
+      banner.classList.add('hidden');
+    }, 3000);
+  }
+
+  // ---------------- 4. Go Live Studio ----------------
+  async function initStudioPreview() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      state.studioStream = stream;
+      $('#studio-preview-video').srcObject = stream;
+    } catch (err) {
+      console.warn('Camera preview unavailable, running in simulated broadcast mode.');
+    }
+  }
+
+  function stopStudioPreview() {
+    if (state.studioStream) {
+      state.studioStream.getTracks().forEach(t => t.stop());
+      state.studioStream = null;
+    }
+  }
+
+  let selectedStudioCat = 'chat';
+  $$('.studio-cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.studio-cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedStudioCat = btn.dataset.cat;
+    });
+  });
+
+  $('#btn-launch-stream').addEventListener('click', async () => {
+    const title = $('#stream-title-input').value.trim();
+    try {
+      const data = await api('/api/streams/start', {
+        method: 'POST',
+        body: JSON.stringify({ title, category: selectedStudioCat }),
+      });
+      toast('🚀 تم بدء البث المباشر بنجاح!');
+      const stream = data.stream;
+      stream.localMediaStream = state.studioStream;
+      openLiveStreamRoom(stream);
+    } catch (err) {
+      alert(err.error || 'تعذر بدء البث');
+    }
+  });
+
+  // ---------------- 5. Wallet Recharge ----------------
+  $$('.btn-recharge').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const amount = parseInt(btn.dataset.amount, 10);
+      try {
+        const res = await api('/api/wallet/topup', { method: 'POST', body: JSON.stringify({ amount }) });
+        state.me.coins = res.coins;
+        updateUserUI();
+        toast(res.message);
+      } catch (e) {
+        alert(e.error || 'تعذر الشحن');
+      }
+    });
+  });
+
+  $('#btn-open-wallet').addEventListener('click', () => {
+    $('[data-target="view-profile"]').click();
+  });
+
+  const btnQuickAdd = $('#btn-quick-add-coins');
+  if (btnQuickAdd) {
+    btnQuickAdd.addEventListener('click', async () => {
+      try {
+        const res = await api('/api/wallet/topup', { method: 'POST', body: JSON.stringify({ amount: 1000 }) });
+        state.me.coins = res.coins;
+        updateUserUI();
+        toast('🎉 تم شحن 1,000 عملة مجاناً!');
+      } catch (e) { console.error(e); }
+    });
+  }
+
+  // ---------------- 6. Leaderboard ----------------
+  async function loadLeaderboard() {
+    try {
+      const data = await api('/api/leaderboard');
+      renderLeaderboard(data.topStreamers || []);
+    } catch (err) { console.error(err); }
+  }
+
+  function renderLeaderboard(list) {
+    const container = $('#leaderboard-list-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    list.forEach((u, idx) => {
+      const card = document.createElement('div');
+      card.className = 'lb-rank-card';
+      const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+      card.innerHTML = `
+        <div class="lb-rank-left">
+          <span class="lb-rank-badge">${medal}</span>
+          <div class="avatar" style="background:${u.avatarColor || '#ec4899'}">${initials(u.displayName)}</div>
+          <div>
+            <div style="font-weight:700;font-size:14px;">${escapeHtml(u.displayName)}</div>
+            <div style="font-size:11px;color:#9ca3af;">المستوى: Lv. ${u.level || 1}</div>
+          </div>
+        </div>
+        <div class="lb-score-tag">💎 ${(u.diamonds || 0).toLocaleString()} ماسة</div>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  // ---------------- 7. Direct Messages (1:1) ----------------
+  async function loadDmContacts() {
+    try {
+      const data = await api('/api/users');
+      state.users = data.users || [];
+      renderDmContacts();
+    } catch (err) { console.error(err); }
+  }
+
+  function renderDmContacts(filter = '') {
+    const list = $('#contacts-list-container');
+    if (!list) return;
+    list.innerHTML = '';
+    const f = filter.trim().toLowerCase();
+
+    state.users
+      .filter(u => !f || u.displayName.toLowerCase().includes(f))
+      .forEach(u => {
+        const div = document.createElement('div');
+        div.className = `contact-item ${u.id === state.activeDmPeerId ? 'active' : ''}`;
+        div.innerHTML = `
+          <div class="avatar" style="background:${u.avatarColor || '#4f46e5'}">
+            ${initials(u.displayName)}
+          </div>
+          <div>
+            <div style="font-weight:700;font-size:13px;">${escapeHtml(u.displayName)}</div>
+            <div style="font-size:11px;color:${u.online ? '#10b981' : '#9ca3af'};">${u.online ? '🟢 متصل' : 'غير متصل'}</div>
+          </div>
+        `;
+        div.addEventListener('click', () => openDmChat(u));
+        list.appendChild(div);
+      });
+  }
+
+  $('#search-contacts').addEventListener('input', (e) => renderDmContacts(e.target.value));
+
+  async function openDmChat(user) {
+    state.activeDmPeerId = user.id;
+    renderDmContacts($('#search-contacts').value);
+    $('#dm-empty-state').classList.add('hidden');
+    $('#dm-chat-active').classList.remove('hidden');
+
+    $('#dm-peer-name').textContent = user.displayName;
+    $('#dm-peer-status').textContent = user.online ? '🟢 متصل الآن' : 'غير متصل';
+    const av = $('#dm-peer-avatar');
+    av.textContent = initials(user.displayName);
+    av.style.background = user.avatarColor || '#4f46e5';
+
+    const data = await api(`/api/messages/${user.id}`);
+    const box = $('#dm-messages-box');
+    box.innerHTML = '';
+    (data.messages || []).forEach(m => appendDmMessage(m));
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function appendDmMessage(m) {
+    const box = $('#dm-messages-box');
+    if (!box) return;
     const div = document.createElement('div');
     const mine = m.from === state.me.id;
-    div.className = 'msg ' + (mine ? 'mine' : 'theirs');
+    div.className = `msg ${mine ? 'mine' : 'theirs'}`;
     const time = new Date(m.createdAt || Date.now()).toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' });
     div.innerHTML = `${escapeHtml(m.body)}<span class="msg-time">${time}</span>`;
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
   }
 
-  $('#message-form').addEventListener('submit', (e) => {
+  $('#dm-form').addEventListener('submit', (e) => {
     e.preventDefault();
-    const input = $('#message-input');
+    const input = $('#dm-input');
     const body = input.value.trim();
-    if (!body || !state.activePeerId) return;
-    state.socket.emit('chat:send', { to: state.activePeerId, body });
+    if (!body || !state.activeDmPeerId || !state.socket) return;
+    state.socket.emit('chat:send', { to: state.activeDmPeerId, body });
     input.value = '';
   });
 
-  // ---------------- Socket.IO ----------------
-  function connectSocket() {
-    if (state.socket) state.socket.disconnect();
-    state.socket = io({ auth: { token: state.token } });
-
-    state.socket.on('chat:message', (m) => {
-      appendMessage(m);
-    });
-
-    state.socket.on('presence', ({ userId, online }) => {
-      const u = state.users.find(x => x.id === userId);
-      if (u) { u.online = online; renderUsers($('#search-users').value); }
-      if (state.activePeerId === userId) {
-        $('#peer-status').textContent = online ? '🟢 متصل الآن' : '⚪ غير متصل';
-      }
-    });
-
-    state.socket.on('connect', () => loadUsers());
-
-    // ----- Call signaling -----
-    state.socket.on('call:invite', ({ from }) => showIncoming(from));
-    state.socket.on('call:accept', ({ from }) => onCallAccepted(from));
-    state.socket.on('call:reject', () => { toast('تم رفض المكالمة'); endCall(false); });
-    state.socket.on('call:cancel', () => { hideIncoming(); toast('تم إلغاء المكالمة'); });
-    state.socket.on('call:end', () => { toast('انتهت المكالمة'); endCall(false); });
-    state.socket.on('webrtc:offer', ({ from, sdp }) => onOffer(from, sdp));
-    state.socket.on('webrtc:answer', ({ sdp }) => onAnswer(sdp));
-    state.socket.on('webrtc:ice', ({ candidate }) => onRemoteIce(candidate));
-  }
-
-  // ================= WebRTC Video Call =================
+  // ---------------- 8. WebRTC 1:1 Video Calls ----------------
   const ICE_SERVERS = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
   function createPeerConnection(peerId) {
@@ -405,29 +705,13 @@
     $('#remote-video').srcObject = null;
     $('#local-video').srcObject = null;
   }
-  function showIncoming(caller) {
-    if (state.call.peerId) {
-      state.socket.emit('call:reject', { to: caller.id });
-      return;
-    }
-    state.call.incomingFrom = caller;
-    $('#incoming-name').textContent = caller.displayName;
-    const av = $('#incoming-avatar');
-    av.textContent = initials(caller.displayName);
-    av.style.background = caller.avatarColor;
-    $('#incoming-call').classList.remove('hidden');
-  }
-  function hideIncoming() {
-    $('#incoming-call').classList.add('hidden');
-    state.call.incomingFrom = null;
-  }
 
-  $('#video-call-btn').addEventListener('click', () => {
-    if (!state.activePeerId || state.call.peerId) return;
-    state.call.peerId = state.activePeerId;
+  $('#btn-dm-video-call').addEventListener('click', () => {
+    if (!state.activeDmPeerId || state.call.peerId) return;
+    state.call.peerId = state.activeDmPeerId;
     state.call.role = 'caller';
     showCallOverlay('جارٍ الاتصال، بانتظار الرد...');
-    state.socket.emit('call:invite', { to: state.activePeerId });
+    state.socket.emit('call:invite', { to: state.activeDmPeerId });
   });
 
   $('#end-call').addEventListener('click', () => {
@@ -437,14 +721,14 @@
 
   $('#accept-call').addEventListener('click', async () => {
     const caller = state.call.incomingFrom;
-    hideIncoming();
+    $('#incoming-call').classList.add('hidden');
     state.call.peerId = caller.id;
     state.call.role = 'callee';
     showCallOverlay('جارٍ الاتصال...');
     try {
       state.call.localStream = await getLocalMedia();
     } catch (e) {
-      toast('تعذر الوصول إلى الكاميرا/الميكروفون');
+      toast('تعذر الوصول للكاميرا');
       endCall(true, caller.id);
       return;
     }
@@ -453,7 +737,7 @@
 
   $('#reject-call').addEventListener('click', () => {
     const caller = state.call.incomingFrom;
-    hideIncoming();
+    $('#incoming-call').classList.add('hidden');
     if (caller) state.socket.emit('call:reject', { to: caller.id });
   });
 
@@ -463,7 +747,7 @@
     try {
       state.call.localStream = await getLocalMedia();
     } catch (e) {
-      toast('تعذر الوصول إلى الكاميرا/الميكروفون');
+      toast('تعذر الوصول للكاميرا');
       endCall(true, fromId);
       return;
     }
@@ -481,11 +765,10 @@
     state.call.pc = pc;
     if (!state.call.localStream) {
       try { state.call.localStream = await getLocalMedia(); }
-      catch (e) { toast('تعذر الوصول إلى الكاميرا/الميكروفون'); endCall(true, fromId); return; }
+      catch (e) { endCall(true, fromId); return; }
     }
     state.call.localStream.getTracks().forEach(t => pc.addTrack(t, state.call.localStream));
     await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-    flushIceQueue();
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
     state.socket.emit('webrtc:answer', { to: fromId, sdp: answer });
@@ -495,20 +778,13 @@
   async function onAnswer(sdp) {
     if (!state.call.pc) return;
     await state.call.pc.setRemoteDescription(new RTCSessionDescription(sdp));
-    flushIceQueue();
     showCallOverlay('متصل');
   }
 
   function onRemoteIce(candidate) {
     if (state.call.pc && state.call.pc.remoteDescription) {
       state.call.pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
-    } else {
-      state.call.iceQueue.push(candidate);
     }
-  }
-  function flushIceQueue() {
-    state.call.iceQueue.forEach(c => state.call.pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {}));
-    state.call.iceQueue = [];
   }
 
   function endCall(sendEndSignal, targetId) {
@@ -520,21 +796,61 @@
     hideCallOverlay();
   }
 
-  let micOn = true, camOn = true;
-  $('#toggle-mic').addEventListener('click', () => {
-    if (!state.call.localStream) return;
-    micOn = !micOn;
-    state.call.localStream.getAudioTracks().forEach(t => t.enabled = micOn);
-    $('#toggle-mic').classList.toggle('off', !micOn);
-    $('#toggle-mic').textContent = micOn ? '🎙️' : '🔇';
-  });
-  $('#toggle-cam').addEventListener('click', () => {
-    if (!state.call.localStream) return;
-    camOn = !camOn;
-    state.call.localStream.getVideoTracks().forEach(t => t.enabled = camOn);
-    $('#toggle-cam').classList.toggle('off', !camOn);
-    $('#toggle-cam').textContent = camOn ? '📷' : '🚫';
-  });
+  // ---------------- 9. Socket.IO Connection ----------------
+  function connectSocket() {
+    if (state.socket) state.socket.disconnect();
+    state.socket = io({ auth: { token: state.token } });
+
+    // Stream events
+    state.socket.on('stream:comment', (c) => appendStreamComment(c));
+    state.socket.on('stream:like', () => spawnFlyingHeart());
+    state.socket.on('stream:gift', (event) => triggerGiftAnimation(event));
+    state.socket.on('stream:viewers_update', ({ viewersCount }) => {
+      const v = $('#room-viewers-count');
+      if (v) v.textContent = (viewersCount || 1).toLocaleString();
+    });
+    state.socket.on('wallet:update', ({ coins }) => {
+      if (state.me) state.me.coins = coins;
+      updateUserUI();
+    });
+    state.socket.on('error:toast', ({ message }) => toast(message));
+
+    // Direct Chat events
+    state.socket.on('chat:message', (m) => {
+      if (state.activeDmPeerId === m.from || state.activeDmPeerId === m.to) {
+        appendDmMessage(m);
+      } else {
+        toast(`رسالة جديدة من ${m.from}`);
+      }
+    });
+
+    // Call signaling
+    state.socket.on('call:invite', ({ from }) => {
+      state.call.incomingFrom = from;
+      $('#incoming-name').textContent = from.displayName;
+      $('#incoming-avatar').textContent = initials(from.displayName);
+      $('#incoming-call').classList.remove('hidden');
+    });
+    state.socket.on('call:accept', ({ from }) => onCallAccepted(from));
+    state.socket.on('call:reject', () => { toast('تم رفض المكالمة'); endCall(false); });
+    state.socket.on('call:cancel', () => { $('#incoming-call').classList.add('hidden'); toast('تم إلغاء المكالمة'); });
+    state.socket.on('call:end', () => { toast('انتهت المكالمة'); endCall(false); });
+    state.socket.on('webrtc:offer', ({ from, sdp }) => onOffer(from, sdp));
+    state.socket.on('webrtc:answer', ({ sdp }) => onAnswer(sdp));
+    state.socket.on('webrtc:ice', ({ candidate }) => onRemoteIce(candidate));
+  }
+
+  // ---------------- Boot ----------------
+  async function boot() {
+    if (!state.token) { showScreen('auth-view'); return; }
+    try {
+      const data = await api('/api/me');
+      loginSuccess(state.token, data.user);
+    } catch (e) {
+      localStorage.removeItem('token');
+      showScreen('auth-view');
+    }
+  }
 
   boot();
 })();

@@ -2,26 +2,29 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>دردشتي المباشرة — LiveChat & Video</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>SuperLive & Tango — البث المباشر والمكالمات والهدايا</title>
 <link rel="stylesheet" href="/style.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
-<body>
+<body class="tango-theme">
 
-<!-- ===================== شاشة التسجيل / الدخول ===================== -->
+<!-- ===================== شاشة المصادقة / الدخول ===================== -->
 <div id="auth-view" class="screen">
   <div class="auth-card">
     <div class="brand">
-      <div class="brand-logo">💬</div>
-      <h1>دردشتي المباشرة</h1>
-      <p class="muted">دردشة نصية ومكالمات فيديو مباشرة عالية الدقة</p>
+      <div class="brand-logo-live">
+        <span class="live-dot"></span>
+        <i class="fa-solid fa-video"></i>
+      </div>
+      <h1>SuperLive & Tango</h1>
+      <p class="muted">منصة البث المباشر والتفاعل والهدايا والمكالمات الفورية</p>
     </div>
 
     <!-- زر الدخول السريع التجريبي -->
     <div class="demo-quick-box">
       <button type="button" id="btn-quick-demo" class="btn-demo">
-        <i class="fa-solid fa-bolt"></i> دخول سريع بحساب تجريبي فوري
+        <i class="fa-solid fa-bolt-lightning"></i> دخول سريع فوري بحساب تجريبي
       </button>
     </div>
 
@@ -38,7 +41,7 @@
       <input type="text" id="login-identifier" placeholder="example@email.com أو 05xxxxxxxx" required />
       <label>كلمة المرور</label>
       <input type="password" id="login-password" placeholder="••••••••" required />
-      <button type="submit" class="btn-primary">دخول</button>
+      <button type="submit" class="btn-primary">دخول للمنصة</button>
       <div class="form-msg" id="login-msg"></div>
     </form>
 
@@ -59,7 +62,7 @@
       <label>كلمة المرور</label>
       <input type="password" id="reg-password" placeholder="6 أحرف على الأقل" required />
 
-      <button type="submit" class="btn-primary">إنشاء الحساب والمتابعة</button>
+      <button type="submit" class="btn-primary">إنشاء الحساب</button>
       <div class="form-msg" id="register-msg"></div>
     </form>
   </div>
@@ -69,24 +72,23 @@
 <div id="verify-view" class="screen hidden">
   <div class="auth-card">
     <div class="brand">
-      <div class="brand-logo">🔐</div>
+      <div class="brand-logo-live"><i class="fa-solid fa-shield-halved"></i></div>
       <h1>تأكيد الحساب</h1>
       <p class="muted" id="verify-sub">أدخل رمز التحقق المكون من 6 أرقام</p>
     </div>
 
-    <!-- صندوق عرض رمز التأكيد المباشر في وضع التطوير -->
     <div id="dev-hint-box" class="dev-hint">
       <div class="dev-hint-header"><i class="fa-solid fa-key"></i> رمز التأكيد الخاص بك:</div>
       <div class="dev-hint-code" id="dev-hint-code-display">------</div>
-      <button type="button" id="btn-autofill-code" class="btn-autofill"><i class="fa-solid fa-wand-magic-sparkles"></i> إدخال الرمز وتأكيده تلقائياً</button>
+      <button type="button" id="btn-autofill-code" class="btn-autofill"><i class="fa-solid fa-wand-magic-sparkles"></i> إدخال وتأكيد الرمز تلقائياً</button>
     </div>
 
     <form id="verify-form" class="panel active">
-      <label>رمز التأكيد (6 أرقام)</label>
+      <label>رمز التأكيد</label>
       <input type="text" id="verify-code" maxlength="6" inputmode="numeric" placeholder="------" class="code-input" required />
-      <button type="submit" class="btn-primary">تأكيد الحساب</button>
+      <button type="submit" class="btn-primary">تأكيد ودخول</button>
       <div class="verify-footer-actions">
-        <button type="button" id="resend-btn" class="btn-link">إعادة إرسال رمز جديد</button>
+        <button type="button" id="resend-btn" class="btn-link">إعادة إرسال الرمز</button>
         <button type="button" id="back-to-login-btn" class="btn-link">العودة لتسجيل الدخول</button>
       </div>
       <div class="form-msg" id="verify-msg"></div>
@@ -94,55 +96,320 @@
   </div>
 </div>
 
-<!-- ===================== التطبيق الرئيسي ===================== -->
-<div id="app-view" class="screen hidden app-shell">
-  <aside class="sidebar">
-    <div class="sidebar-header">
-      <div class="me">
-        <div class="avatar" id="me-avatar"></div>
-        <div>
-          <div class="me-name" id="me-name"></div>
-          <div class="me-sub" id="me-sub"></div>
-        </div>
+<!-- ===================== التطبيق الرئيسي (Tango & SuperLive Shell) ===================== -->
+<div id="app-view" class="screen hidden app-main-shell">
+  
+  <!-- Top Bar -->
+  <header class="tango-top-bar">
+    <div class="top-bar-left">
+      <div class="app-brand-badge">
+        <span class="live-pulse-dot"></span>
+        <span class="brand-name">SuperLive</span>
       </div>
-      <button id="logout-btn" title="تسجيل الخروج" class="icon-btn"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
-    </div>
-    <div class="sidebar-search">
-      <input type="text" id="search-users" placeholder="🔎 ابحث عن جهة اتصال..." />
-    </div>
-    <div class="users-list" id="users-list"></div>
-  </aside>
-
-  <main class="chat-area">
-    <div id="chat-empty" class="chat-empty">
-      <div class="chat-empty-icon">💬</div>
-      <h3>مرحباً بك في دردشتي المباشرة!</h3>
-      <p>اختر أحد المستخدمين من القائمة الجانبية لبدء المحادثة النصية أو إجراء مكالمة فيديو مباشرة.</p>
     </div>
 
-    <div id="chat-active" class="chat-active hidden">
-      <div class="chat-header">
-        <div class="chat-peer">
-          <div class="avatar" id="peer-avatar"></div>
-          <div>
-            <div class="peer-name" id="peer-name"></div>
-            <div class="peer-status" id="peer-status"></div>
+    <div class="top-bar-center">
+      <!-- Category Filter Tabs -->
+      <div class="category-tabs" id="category-filter-tabs">
+        <button class="cat-tab active" data-cat="all">🌟 الكل</button>
+        <button class="cat-tab" data-cat="music">🎵 موسيقى</button>
+        <button class="cat-tab" data-cat="gaming">🎮 ألعاب</button>
+        <button class="cat-tab" data-cat="chat">💬 دردشة</button>
+      </div>
+    </div>
+
+    <div class="top-bar-right">
+      <!-- Wallet Coins Pill -->
+      <div class="wallet-pill" id="btn-open-wallet" title="محفظة العملات">
+        <span class="coin-icon">🪙</span>
+        <span class="coin-amount" id="user-coins-display">500</span>
+        <button class="btn-add-coins" title="شحن مجاني">+</button>
+      </div>
+
+      <div class="diamonds-pill" title="الماس المكتسب">
+        <span class="diamond-icon">💎</span>
+        <span class="diamond-amount" id="user-diamonds-display">0</span>
+      </div>
+
+      <button id="btn-logout" class="icon-circle-btn" title="تسجيل الخروج"><i class="fa-solid fa-power-off"></i></button>
+    </div>
+  </header>
+
+  <!-- Main Content Viewport -->
+  <main class="tango-viewport">
+    
+    <!-- 1. Explore Live Streams Feed (الرئيسية / استكشاف البثوث) -->
+    <section id="view-explore" class="tab-view active">
+      <div class="explore-header-banner">
+        <div class="banner-content">
+          <h2>🔥 أفضل البثوث المباشرة الآن</h2>
+          <p>شاهد أروع المواهب، تفاعل بالهدايا، وشارك في التحديات المباشرة</p>
+        </div>
+        <button id="btn-start-broadcast-banner" class="btn-go-live-banner">
+          <i class="fa-solid fa-tower-broadcast"></i> ابدأ البث الآن
+        </button>
+      </div>
+
+      <div class="streams-grid" id="streams-grid-container">
+        <!-- Injected via JavaScript -->
+      </div>
+    </section>
+
+    <!-- 2. Go Live Studio (استوديو بدء البث المباشر) -->
+    <section id="view-go-live" class="tab-view">
+      <div class="broadcast-studio-card">
+        <div class="studio-header">
+          <h3><i class="fa-solid fa-camera-retro"></i> إعداد البث المباشر الخاص بك</h3>
+          <p>شغّل الكاميرا واجذب آلاف المشاهدين والهدايا</p>
+        </div>
+
+        <div class="studio-camera-preview">
+          <video id="studio-preview-video" autoplay playsinline muted></video>
+          <div class="studio-overlay-controls">
+            <span class="badge-ready">جاهز للبث</span>
+            <button id="btn-switch-studio-cam" class="btn-studio-mini" title="تبديل الكاميرا"><i class="fa-solid fa-camera-rotate"></i></button>
           </div>
         </div>
-        <div class="chat-actions">
-          <button id="video-call-btn" class="icon-btn" title="بدء مكالمة فيديو مباشرة">📹</button>
+
+        <div class="studio-form">
+          <label>عنوان البث المباشر:</label>
+          <input type="text" id="stream-title-input" placeholder="اكتب عنواناً جذاباً للبث (مثال: سهرة ممتعة مع الأصدقاء)..." value="بث مباشر تفاعلي مع المتابعين 🔥" />
+          
+          <label>فئة البث:</label>
+          <div class="category-selector-row">
+            <button type="button" class="studio-cat-btn active" data-cat="chat">💬 دردشة</button>
+            <button type="button" class="studio-cat-btn" data-cat="music">🎵 موسيقى</button>
+            <button type="button" class="studio-cat-btn" data-cat="gaming">🎮 ألعاب</button>
+          </div>
+
+          <button id="btn-launch-stream" class="btn-launch-live">
+            <i class="fa-solid fa-tower-broadcast"></i> إطلاق البث المباشر الآن (Go Live)
+          </button>
         </div>
       </div>
-      <div class="messages" id="messages"></div>
-      <form id="message-form" class="message-form">
-        <input type="text" id="message-input" placeholder="اكتب رسالتك هنا..." autocomplete="off" />
-        <button type="submit" class="btn-primary send-btn"><i class="fa-solid fa-paper-plane"></i> إرسال</button>
-      </form>
-    </div>
+    </section>
+
+    <!-- 3. Direct Messages & Calls (الرسائل الخاصة) -->
+    <section id="view-messages" class="tab-view">
+      <div class="messages-layout">
+        <aside class="messages-sidebar">
+          <div class="msg-search-box">
+            <input type="text" id="search-contacts" placeholder="🔎 بحث في جهات الاتصال..." />
+          </div>
+          <div class="contacts-list" id="contacts-list-container">
+            <!-- Populated by JS -->
+          </div>
+        </aside>
+
+        <div class="messages-chat-pane">
+          <div id="dm-empty-state" class="dm-empty">
+            <i class="fa-regular fa-comments dm-empty-icon"></i>
+            <h3>المحادثات الخاصة</h3>
+            <p>اختر جهة اتصال لبدء الدردشة الفردية أو إجراء مكالمة فيديو خاصة.</p>
+          </div>
+
+          <div id="dm-chat-active" class="dm-chat-active hidden">
+            <div class="dm-header">
+              <div class="dm-peer-info">
+                <div class="avatar" id="dm-peer-avatar"></div>
+                <div>
+                  <div class="peer-name" id="dm-peer-name"></div>
+                  <div class="peer-status" id="dm-peer-status"></div>
+                </div>
+              </div>
+              <div class="dm-actions">
+                <button id="btn-dm-video-call" class="icon-circle-btn" title="مكالمة فيديو خاصة"><i class="fa-solid fa-video"></i></button>
+              </div>
+            </div>
+            <div class="dm-messages-box" id="dm-messages-box"></div>
+            <form id="dm-form" class="dm-form">
+              <input type="text" id="dm-input" placeholder="اكتب رسالتك الخاصة..." autocomplete="off" />
+              <button type="submit" class="btn-dm-send"><i class="fa-solid fa-paper-plane"></i></button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Leaderboard (المتصدرون) -->
+    <section id="view-leaderboard" class="tab-view">
+      <div class="leaderboard-container">
+        <div class="leaderboard-tabs">
+          <button class="lb-tab active" data-lb="streamers">👑 نجوم البث (الأكثر دعماً)</button>
+          <button class="lb-tab" data-lb="gifters">💎 كبار الداعمين (VIP)</button>
+        </div>
+        <div class="leaderboard-list" id="leaderboard-list-container">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Profile & Wallet (ملفي الشخصي والمحفظة) -->
+    <section id="view-profile" class="tab-view">
+      <div class="profile-card">
+        <div class="profile-header-bg"></div>
+        <div class="profile-avatar-wrapper">
+          <div class="profile-avatar" id="prof-avatar"></div>
+          <span class="vip-badge" id="prof-level">Lv. 1</span>
+        </div>
+        <h3 id="prof-name" class="prof-name">المستخدم</h3>
+        <p id="prof-identifier" class="prof-sub"></p>
+
+        <div class="profile-stats-grid">
+          <div class="stat-box">
+            <span class="stat-num" id="prof-followers">12</span>
+            <span class="stat-lbl">المتابعون</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-num" id="prof-diamonds">0</span>
+            <span class="stat-lbl">💎 الماس</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-num" id="prof-coins">500</span>
+            <span class="stat-lbl">🪙 العملات</span>
+          </div>
+        </div>
+
+        <div class="wallet-recharge-section">
+          <h4><i class="fa-solid fa-wallet"></i> شحن المحفظة التجريبية</h4>
+          <p>اشحن عملات ذهبية مجاناً لإرسال الهدايا للستريمرز</p>
+          <div class="recharge-options">
+            <button class="btn-recharge" data-amount="500">🪙 +500 عملة</button>
+            <button class="btn-recharge" data-amount="2000">🪙 +2,000 عملة</button>
+            <button class="btn-recharge" data-amount="10000">🪙 +10,000 عملة</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
+
+  <!-- Bottom Navigation Bar (Tango & SuperLive Style) -->
+  <nav class="tango-bottom-nav">
+    <button class="nav-item active" data-target="view-explore">
+      <i class="fa-solid fa-compass"></i>
+      <span>استكشاف</span>
+    </button>
+    <button class="nav-item" data-target="view-leaderboard">
+      <i class="fa-solid fa-trophy"></i>
+      <span>المتصدرون</span>
+    </button>
+    <button class="nav-item-center" data-target="view-go-live" title="ابدأ البث المباشر">
+      <div class="go-live-circle">
+        <span class="pulse-ring"></span>
+        <i class="fa-solid fa-video"></i>
+      </div>
+      <span>بث مباشر</span>
+    </button>
+    <button class="nav-item" data-target="view-messages">
+      <i class="fa-solid fa-comment-dots"></i>
+      <span class="nav-badge" id="messages-badge" style="display:none;">1</span>
+      <span>الرسائل</span>
+    </button>
+    <button class="nav-item" data-target="view-profile">
+      <i class="fa-solid fa-user"></i>
+      <span>حسابي</span>
+    </button>
+  </nav>
+
 </div>
 
-<!-- ===================== طبقة المكالمة ===================== -->
+<!-- ===================== غرفة البث المباشر الفورية (Live Stream Room Player) ===================== -->
+<div id="live-room-overlay" class="live-room-overlay hidden">
+  <div class="live-room-container">
+    
+    <!-- Live Video Layer -->
+    <div class="live-video-layer">
+      <video id="live-stream-video" autoplay playsinline></video>
+      <div class="video-placeholder-gradient" id="live-video-placeholder"></div>
+      
+      <!-- Flying Hearts Canvas / Container -->
+      <div class="flying-hearts-container" id="flying-hearts-box"></div>
+
+      <!-- Animated Gift Banner Display Overlay -->
+      <div class="gift-animation-overlay hidden" id="gift-animation-banner">
+        <div class="gift-banner-card">
+          <div class="gift-banner-icon" id="gift-banner-icon">🚀</div>
+          <div class="gift-banner-text">
+            <div class="gift-sender-name" id="gift-banner-sender">فلان</div>
+            <div class="gift-action-desc" id="gift-banner-desc">أرسل صاروخاً فضائياً!</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Stream Top Header -->
+    <div class="room-top-header">
+      <div class="host-pill">
+        <div class="host-avatar" id="room-host-avatar"></div>
+        <div class="host-details">
+          <div class="host-name-row">
+            <span id="room-host-name">سارة لايف</span>
+            <span class="vip-tag" id="room-host-level">Lv. 12</span>
+          </div>
+          <div class="host-diamonds"><span class="diamond-icon">💎</span> <span id="room-diamonds-count">2,850</span></div>
+        </div>
+        <button id="btn-room-follow" class="btn-follow-stream"><i class="fa-solid fa-plus"></i> متابعة</button>
+      </div>
+
+      <div class="room-top-actions">
+        <div class="viewers-count-badge">
+          <i class="fa-solid fa-eye"></i> <span id="room-viewers-count">348</span>
+        </div>
+        <button id="btn-close-room" class="btn-close-live" title="إغلاق البث"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+    </div>
+
+    <!-- Floating Live Comments Over Video -->
+    <div class="room-floating-chat" id="room-chat-messages">
+      <!-- Injected live comments -->
+    </div>
+
+    <!-- Room Bottom Interactive Action Bar -->
+    <div class="room-bottom-bar">
+      <form id="room-comment-form" class="room-comment-form">
+        <input type="text" id="room-comment-input" placeholder="قل شيئاً جميلاً في البث..." autocomplete="off" />
+        <button type="submit" class="btn-send-comment"><i class="fa-solid fa-paper-plane"></i></button>
+      </form>
+
+      <div class="room-action-buttons">
+        <!-- Gift Button -->
+        <button id="btn-open-gifts" class="btn-gift-trigger" title="إرسال هدية">
+          <span class="gift-btn-icon">🎁</span>
+          <span class="gift-lbl">هدية</span>
+        </button>
+
+        <!-- Like / Heart Button -->
+        <button id="btn-send-like" class="btn-like-trigger" title="إعجاب">
+          <span class="like-btn-icon">💖</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===================== درج متجر الهدايا (Gifts Store Drawer) ===================== -->
+<div id="gifts-drawer-modal" class="gifts-drawer-modal hidden">
+  <div class="gifts-drawer-content">
+    <div class="gifts-drawer-header">
+      <div class="gifts-header-title">
+        <i class="fa-solid fa-gift"></i> متجر الهدايا التفاعلية
+      </div>
+      <div class="gifts-user-balance">
+        رصيدك: <span class="coin-icon">🪙</span> <b id="drawer-coins-amount">500</b>
+        <button id="btn-quick-add-coins" class="btn-mini-add">+</button>
+      </div>
+      <button id="btn-close-gifts" class="btn-close-drawer">&times;</button>
+    </div>
+
+    <div class="gifts-grid-container" id="gifts-grid-container">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+</div>
+
+<!-- ===================== 1:1 Video Call Overlay ===================== -->
 <div id="call-overlay" class="call-overlay hidden">
   <div class="call-box">
     <div id="call-status" class="call-status">جارٍ الاتصال...</div>
@@ -165,12 +432,13 @@
     <div class="incoming-name" id="incoming-name"></div>
     <div class="muted">مكالمة فيديو واردة...</div>
     <div class="incoming-actions">
-      <button id="accept-call" class="call-btn accept">✔ قبول المكالمة</button>
+      <button id="accept-call" class="call-btn accept">✔ قبول</button>
       <button id="reject-call" class="call-btn end">✖ رفض</button>
     </div>
   </div>
 </div>
 
+<!-- Toast Notifications -->
 <div id="toast" class="toast hidden"></div>
 
 <script src="/socket.io/socket.io.js"></script>
