@@ -1,5 +1,5 @@
 /**
- * SuperLive & Tango Live Streaming and Social Broadcasting Client
+ * LiveChat Live Streaming and Social Broadcasting Client
  */
 
 (() => {
@@ -64,7 +64,7 @@
       try {
         const data = await api('/api/demo-login', { method: 'POST', body: JSON.stringify({}) });
         loginSuccess(data.token, data.user);
-        toast('🎉 مرحباً بك في SuperLive & Tango!');
+        toast('🎉 مرحباً بك في LiveChat!');
       } catch (err) {
         alert(err.error || 'تعذر الدخول التجريبي');
       } finally {
@@ -241,12 +241,12 @@
   });
 
   // ---------------- Navigation Tabs Switching ----------------
-  $$('.tango-bottom-nav .nav-item, .tango-bottom-nav .nav-item-center').forEach(btn => {
+  $$('.livechat-bottom-nav .nav-item, .livechat-bottom-nav .nav-item-center').forEach(btn => {
     btn.addEventListener('click', () => {
       const targetId = btn.dataset.target;
       if (!targetId) return;
 
-      $$('.tango-bottom-nav .nav-item').forEach(b => b.classList.remove('active'));
+      $$('.livechat-bottom-nav .nav-item').forEach(b => b.classList.remove('active'));
       if (btn.classList.contains('nav-item')) btn.classList.add('active');
 
       $$('.tab-view').forEach(v => v.classList.remove('active'));

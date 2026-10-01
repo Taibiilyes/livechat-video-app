@@ -1,8 +1,8 @@
-# 🌟 SuperLive & Tango — Live Streaming & Social Broadcasting Platform
+# 🌟 LiveChat — Live Streaming & Social Broadcasting Platform
 
 <p align="center">
   <img src="https://img.shields.io/badge/Node.js-20.x-green?logo=node.js&logoColor=white" alt="Node.js">
-  <img src="https://img.shields.io/badge/Style-Tango%20%26%20SuperLive-purple" alt="Tango & SuperLive Style">
+  <img src="https://img.shields.io/badge/Style-LiveChat-purple" alt="LiveChat Style">
   <img src="https://img.shields.io/badge/Socket.io-4.x-black?logo=socketdotio&logoColor=white" alt="Socket.io">
   <img src="https://img.shields.io/badge/WebRTC-Live%20Broadcast-red?logo=webrtc&logoColor=white" alt="WebRTC">
   <img src="https://img.shields.io/badge/Virtual%20Gifts-Animated-gold" alt="Virtual Gifts">
@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/License-MIT-blue" alt="License">
 </p>
 
-> **منصة متكاملة للبث المباشر (Live Video Streaming) والتفاعل الاجتماعي على غرار تطبيقات Tango و SuperLive و Bigo Live، مع نظام هدايا تفاعلية متحركة، محفظة عملات، قلوب طائرة، تعليقات حية، ومكالمات فيديو مباشرة.**
+> **منصة مستقلة ومتكاملة للبث المباشر (Live Video Streaming) والتفاعل الاجتماعي، مع نظام هدايا تفاعلية متحركة، محفظة عملات، قلوب طائرة، تعليقات حية، ومكالمات فيديو مباشرة.**
 
 ---
 
@@ -52,7 +52,7 @@ livechat-video-app/
 ├── docker-compose.yml      # ملف تشغيل الحاويات
 ├── render.yaml             # إعدادات النشر السحابي التلقائي
 ├── public/
-│   ├── index.html          # واجهة التطبيق بأسلوب Tango & SuperLive
+│   ├── index.html          # واجهة التطبيق بأسلوب LiveChat
 │   ├── style.css           # تصميم النيون الداكن والأنيميشن التفاعلي
 │   └── app.js              # المنطق البرمجي للعميل والبث المباشر والهدايا
 └── data/                   # بيانات المستخدمين والمحفظة

@@ -1,5 +1,5 @@
 /**
- * Automated Test Suite for SuperLive & Tango Live Streaming Platform.
+ * Automated Test Suite for LiveChat Live Streaming Platform.
  */
 
 const http = require('http');
@@ -33,7 +33,7 @@ function request(path, method = 'GET', body = null, token = null) {
 }
 
 async function runTests() {
-  console.log('🧪 Starting Tests for SuperLive & Tango Live Streaming Platform...\n');
+  console.log('🧪 Starting Tests for LiveChat Live Streaming Platform...\n');
 
   try {
     // 1. Health
@@ -77,7 +77,7 @@ async function runTests() {
     if (lb.status !== 200 || !Array.isArray(lb.body.topStreamers)) throw new Error('Leaderboard failed');
     console.log(`7. Top Streamers & Gifters Leaderboard: PASSED ✅`);
 
-    console.log('\n🎉 ALL 7 SUPERLIVE & TANGO TESTS PASSED 100% SUCCESSFULLY! 🎉\n');
+    console.log('\n🎉 ALL 7 LIVECHAT TESTS PASSED 100% SUCCESSFULLY! 🎉\n');
     process.exit(0);
   } catch (err) {
     console.error('❌ Test failed with error:', err.message);

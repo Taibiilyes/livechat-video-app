@@ -1,5 +1,5 @@
 /**
- * Database Module for livechat-video-app (Tango / SuperLive Edition).
+ * Database Module for livechat-video-app (LiveChat Edition).
  * Supports better-sqlite3 with an automatic zero-dependency fallback engine.
  */
 

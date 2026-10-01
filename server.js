@@ -24,7 +24,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// GIFTS CATALOG (Tango & SuperLive Style)
+// GIFTS CATALOG (LiveChat Style)
 const GIFTS_CATALOG = [
   { id: 'rose', name: 'وردة حمراء', icon: '🌹', coins: 1, sound: 'sparkle', animation: 'float' },
   { id: 'heart', name: 'قلب ناري', icon: '💖', coins: 5, sound: 'pop', animation: 'heartbeat' },
@@ -115,7 +115,7 @@ async function initSeedData() {
         VALUES (?, ?, ?, ?, 1, ?, ?)`).run('أمين جيمينغ 🎮', 'amine@livechat.com', '0555000003', hash, '#10b981', Date.now());
       db.prepare(`INSERT INTO users (display_name, email, phone, password_hash, verified, avatar_color, created_at)
         VALUES (?, ?, ?, ?, 1, ?, ?)`).run('نور التونسية 💃', 'nour@livechat.com', '0555000004', hash, '#f59e0b', Date.now());
-      console.log('✅ Tango/SuperLive Seed users ready.');
+      console.log('✅ LiveChat Seed users ready.');
     }
 
     // Seed default simulated active streams
@@ -351,7 +351,7 @@ app.get('/api/admin/messages', adminMiddleware, (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'healthy',
-    service: 'tango-superlive-platform',
+    service: 'livechat-platform',
     activeStreams: activeLiveStreams.size,
     onlineUsers: onlineUsers.size,
     timestamp: new Date().toISOString()
@@ -690,7 +690,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Sending Gifts (Tango / SuperLive Virtual Gifts)
+  // Sending Gifts (LiveChat Virtual Gifts)
   socket.on('stream:gift', ({ streamId, giftId }) => {
     const gift = GIFTS_CATALOG.find(g => g.id === giftId);
     const stream = activeLiveStreams.get(streamId);
@@ -769,5 +769,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🌟 Tango & SuperLive Platform running on http://0.0.0.0:${PORT}`);
+  console.log(`🌟 LiveChat Platform running on http://0.0.0.0:${PORT}`);
 });

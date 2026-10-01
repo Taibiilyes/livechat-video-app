@@ -1,4 +1,4 @@
-/* Admin dashboard — SuperLive & Tango */
+/* Admin dashboard — LiveChat */
 (() => {
   const $ = (s) => document.querySelector(s);
   const KEY = 'admin_token';

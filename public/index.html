@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>SuperLive & Tango — البث المباشر والمكالمات والهدايا</title>
+<title>LiveChat — البث المباشر والمكالمات والهدايا</title>
 <link rel="stylesheet" href="/style.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
-<body class="tango-theme">
+<body class="livechat-theme">
 
 <!-- ===================== شاشة المصادقة / الدخول ===================== -->
 <div id="auth-view" class="screen">
@@ -17,8 +17,8 @@
         <span class="live-dot"></span>
         <i class="fa-solid fa-video"></i>
       </div>
-      <h1>SuperLive & Tango</h1>
-      <span class="version-badge">الإصدار 1.1.0</span>
+      <h1>LiveChat</h1>
+      <span class="version-badge">الإصدار 1.1.1</span>
       <p class="muted">منصة البث المباشر والتفاعل والهدايا والمكالمات الفورية</p>
     </div>
 
@@ -97,15 +97,18 @@
   </div>
 </div>
 
-<!-- ===================== التطبيق الرئيسي (Tango & SuperLive Shell) ===================== -->
+<!-- ===================== التطبيق الرئيسي (LiveChat Shell) ===================== -->
 <div id="app-view" class="screen hidden app-main-shell">
   
   <!-- Top Bar -->
-  <header class="tango-top-bar">
+  <header class="livechat-top-bar">
     <div class="top-bar-left">
       <div class="app-brand-badge">
         <span class="live-pulse-dot"></span>
-        <span class="brand-name">SuperLive</span>
+        <span class="brand-title-stack">
+          <span class="brand-name">LiveChat</span>
+          <small class="header-version">الإصدار 1.1.1</small>
+        </span>
       </div>
     </div>
 
@@ -137,7 +140,7 @@
   </header>
 
   <!-- Main Content Viewport -->
-  <main class="tango-viewport">
+  <main class="livechat-viewport">
     
     <!-- 1. Explore Live Streams Feed (الرئيسية / استكشاف البثوث) -->
     <section id="view-explore" class="tab-view active">
@@ -285,8 +288,8 @@
 
   </main>
 
-  <!-- Bottom Navigation Bar (Tango & SuperLive Style) -->
-  <nav class="tango-bottom-nav">
+  <!-- Bottom Navigation Bar (LiveChat Style) -->
+  <nav class="livechat-bottom-nav">
     <button class="nav-item active" data-target="view-explore">
       <i class="fa-solid fa-compass"></i>
       <span>استكشاف</span>

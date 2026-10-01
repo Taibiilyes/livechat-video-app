@@ -1,5 +1,5 @@
 /* =========================================================
-   TANGO & SUPERLIVE ULTRA-MODERN STYLING
+   LIVECHAT ULTRA-MODERN STYLING
    ========================================================= */
 
 :root {
@@ -25,7 +25,7 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-body.tango-theme {
+body.livechat-theme {
   background-color: var(--bg-dark);
   color: var(--text-main);
   font-family: var(--font-sans);
@@ -186,7 +186,7 @@ input[type="text"]:focus, input[type="password"]:focus { border-color: #ec4899; 
 }
 
 /* Top Bar */
-.tango-top-bar {
+.livechat-top-bar {
   height: var(--top-bar-height);
   background: rgba(15, 12, 32, 0.95);
   border-bottom: 1px solid var(--border-color);
@@ -294,7 +294,7 @@ input[type="text"]:focus, input[type="password"]:focus { border-color: #ec4899; 
 .icon-circle-btn:hover { background: rgba(255,255,255,0.15); }
 
 /* Viewport Area */
-.tango-viewport {
+.livechat-viewport {
   flex: 1;
   overflow-y: auto;
   position: relative;
@@ -549,7 +549,7 @@ input[type="text"]:focus, input[type="password"]:focus { border-color: #ec4899; 
 .btn-recharge:hover { background: var(--accent-gold); color: #000; }
 
 /* ---------------- Bottom Navigation Bar ---------------- */
-.tango-bottom-nav {
+.livechat-bottom-nav {
   position: fixed;
   bottom: 0;
   left: 0;
@@ -906,7 +906,7 @@ input[type="text"]:focus, input[type="password"]:focus { border-color: #ec4899; 
 }
 
 /* =========================================================
-   LIGHT PASTEL THEME — Version 1.1.0
+   LIGHT PASTEL THEME — Version 1.1.1
    ========================================================= */
 :root {
   --bg-dark: #f7f8ff;
@@ -921,7 +921,7 @@ input[type="text"]:focus, input[type="password"]:focus { border-color: #ec4899; 
   --text-muted: #77768e;
 }
 
-body.tango-theme {
+body.livechat-theme {
   background: linear-gradient(145deg, #fff7fb 0%, #f4f3ff 52%, #effaff 100%);
   color: var(--text-main);
 }
@@ -985,7 +985,7 @@ input[type="text"]:focus, input[type="password"]:focus {
 .dev-hint-header { color: #6d5ab4; }
 
 .app-main-shell { background: #f7f8ff; }
-.tango-top-bar {
+.livechat-top-bar {
   height: 68px;
   background: rgba(255, 255, 255, .92);
   border-bottom-color: #e9e9f3;
@@ -1014,7 +1014,7 @@ input[type="text"]:focus, input[type="password"]:focus {
 .icon-circle-btn { background: #f4f4fa; color: #5d5b71; border-color: #e5e5ef; }
 .icon-circle-btn:hover { background: #ebe9ff; color: #7258d7; }
 
-.tango-viewport {
+.livechat-viewport {
   background:
     radial-gradient(circle at 0 0, rgba(255, 210, 229, .33), transparent 30%),
     radial-gradient(circle at 100% 100%, rgba(198, 231, 255, .35), transparent 28%),
@@ -1087,7 +1087,7 @@ input[type="text"]:focus, input[type="password"]:focus {
 .stat-box { background: #f6f5fc; }
 .btn-recharge { background: #fff9e8; }
 
-.tango-bottom-nav {
+.livechat-bottom-nav {
   background: rgba(255, 255, 255, .94);
   border-top-color: #e8e8f2;
   box-shadow: 0 -6px 24px rgba(67, 60, 103, .08);
@@ -1115,7 +1115,7 @@ input[type="text"]:focus, input[type="password"]:focus {
 #live-video-placeholder { transition: opacity .3s ease; }
 
 @media (max-width: 760px) {
-  .tango-top-bar { height: auto; min-height: 68px; padding: 8px 10px; flex-wrap: wrap; gap: 7px; }
+  .livechat-top-bar { height: auto; min-height: 68px; padding: 8px 10px; flex-wrap: wrap; gap: 7px; }
   .top-bar-center { order: 3; width: 100%; }
   .category-tabs { width: 100%; padding-bottom: 2px; }
   .cat-tab { flex: 1; padding: 6px 9px; }
