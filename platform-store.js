@@ -8,7 +8,7 @@ const file = path.join(dataDir, 'platform_config.json');
 const DEFAULT_SETTINGS = {
   siteName: 'LiveChat',
   tagline: 'منصة البث المباشر والتفاعل والهدايا والمكالمات الفورية',
-  version: '1.3.0',
+  version: '1.4.0',
   supportEmail: 'support@livechat.local',
   primaryColor: '#ff72ad',
   secondaryColor: '#9b8afb',
@@ -23,13 +23,12 @@ const DEFAULT_SETTINGS = {
 };
 
 const DEFAULT_COIN_PACKAGES = [
-  { id: 'coins_500', name: 'باقة البداية', coins: 500, price: 500, currency: 'DZD', enabled: true },
-  { id: 'coins_1500', name: 'باقة التوفير', coins: 1500, price: 1200, currency: 'DZD', enabled: true },
-  { id: 'coins_5000', name: 'باقة VIP', coins: 5000, price: 3500, currency: 'DZD', enabled: true }
+  { id: 'coins_500', name: 'باقة البداية', coins: 500, price: 5, currency: 'USD', enabled: true },
+  { id: 'coins_1500', name: 'باقة التوفير', coins: 1500, price: 12, currency: 'USD', enabled: true },
+  { id: 'coins_5000', name: 'باقة VIP', coins: 5000, price: 35, currency: 'USD', enabled: true }
 ];
 const DEFAULT_PAYMENT_METHODS = [
-  { id: 'baridimob', name: 'بريدي موب', account: '00799999000000000000', enabled: true },
-  { id: 'ccp', name: 'الحساب البريدي CCP', account: '00000000 مفتاح 00', enabled: true }
+  { id: 'usdt', name: 'USDT', network: 'TRC20', account: '', enabled: true }
 ];
 
 const DEFAULT_GIFTS = [
@@ -60,7 +59,17 @@ try {
 } catch (e) {
   console.error('Failed to load platform settings:', e.message);
 }
-if (state.settings.version === '1.2.0') state.settings.version = '1.3.0';
+if (['1.2.0','1.3.0'].includes(state.settings.version)) state.settings.version = '1.4.0';
+// One-time migration: the platform now accepts USDT in USD only.
+if (!state.paymentMethods.some(m => m.id === 'usdt') || state.paymentMethods.some(m => ['ccp','baridimob'].includes(m.id))) {
+  state.paymentMethods = DEFAULT_PAYMENT_METHODS.map(m => ({ ...m }));
+}
+state.paymentOrders = state.paymentOrders.filter(o => o.methodId === 'usdt');
+state.coinPackages = state.coinPackages.map(p => {
+  if (p.currency !== 'DZD') return p;
+  const replacement = DEFAULT_COIN_PACKAGES.find(x => x.id === p.id);
+  return replacement ? { ...replacement } : { ...p, currency: 'USD', price: Math.max(1, Math.round(Number(p.price || 0) / 140)) };
+});
 
 function save() {
   fs.writeFileSync(file, JSON.stringify(state, null, 2), 'utf8');

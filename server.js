@@ -23,7 +23,7 @@ const AVATAR_COLORS = ['#ec4899', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#
 const STAFF_ROLES = ['owner', 'admin', 'moderator', 'seller'];
 const ROLE_PERMISSIONS = {
   owner: ['*'],
-  admin: ['viewStats','viewUsers','manageUsers','manageContent','manageGifts','managePayments','moderateMessages','manageSettings','viewAudit'],
+  admin: ['viewStats','viewUsers','manageUsers','manageContent','manageGifts','managePayments','manageCoinPackages','moderateMessages','manageSettings','viewAudit'],
   moderator: ['viewStats','viewUsers','manageContent','moderateMessages'],
   seller: ['viewStats','viewUsers','managePayments'],
   member: []
@@ -360,7 +360,8 @@ app.patch('/api/admin/users/:id', adminMiddleware, permit('manageUsers'), async 
 app.delete('/api/admin/users/:id', adminMiddleware, permit('manageUsers'), (req, res) => {
   const user = store.findUserById(req.params.id);
   if (!user) return res.status(404).json({ error: 'المستخدم غير موجود.' });
-  if (user.is_admin) return res.status(400).json({ error: 'لا يمكن حذف حساب مسؤول.' });
+  if (userRole(user) === 'owner') return res.status(400).json({ error: 'لا يمكن حذف حساب المالك.' });
+  if (userRole(user) === 'admin' && userRole(req.admin) !== 'owner') return res.status(403).json({ error: 'المالك فقط يمكنه حذف حساب مسؤول.' });
   store.deleteUser(user.id);
   platform.addAudit(req.admin.email, 'حذف مستخدم', `#${user.id} ${user.display_name}`);
   res.json({ ok: true });
@@ -405,7 +406,7 @@ app.patch('/api/admin/settings', adminMiddleware, permit('manageSettings'), (req
   const patch = {
     siteName: String(b.siteName || 'LiveChat').trim().slice(0, 40),
     tagline: String(b.tagline || '').trim().slice(0, 160),
-    version: String(b.version || '1.3.0').trim().slice(0, 20),
+    version: String(b.version || '1.4.0').trim().slice(0, 20),
     supportEmail: String(b.supportEmail || '').trim().slice(0, 100),
     primaryColor: /^#[0-9a-f]{6}$/i.test(b.primaryColor) ? b.primaryColor : '#ff72ad',
     secondaryColor: /^#[0-9a-f]{6}$/i.test(b.secondaryColor) ? b.secondaryColor : '#9b8afb',
@@ -500,10 +501,11 @@ app.post('/api/payments/orders', authMiddleware, (req, res) => {
   const pack=platform.getCoinPackages(false).find(p=>p.id===b.packageId);
   const method=platform.getPaymentMethods(false).find(m=>m.id===b.methodId);
   if(!pack||!method) return res.status(400).json({error:'الباقة أو وسيلة الدفع غير صالحة.'});
+  if(!method.account) return res.status(503).json({error:'محفظة استلام USDT لم يتم إعدادها بعد من طرف المالك.'});
   if(!String(b.reference||'').trim()) return res.status(400).json({error:'رقم مرجع عملية الدفع مطلوب.'});
   const rawProof=String(b.proofUrl||'').trim();
   const proofUrl=/^https?:\/\//i.test(rawProof)?rawProof.slice(0,500):'';
-  const order=platform.createPaymentOrder({userId:req.user.id,packageId:pack.id,packageName:pack.name,coins:pack.coins,price:pack.price,currency:pack.currency,methodId:method.id,methodName:method.name,reference:String(b.reference).trim().slice(0,80),proofUrl,note:String(b.note||'').trim().slice(0,300)});
+  const order=platform.createPaymentOrder({userId:req.user.id,packageId:pack.id,packageName:pack.name,coins:pack.coins,price:pack.price,currency:pack.currency,methodId:method.id,methodName:`${method.name}${method.network?` (${method.network})`:''}`,reference:String(b.reference).trim().slice(0,80),proofUrl,note:String(b.note||'').trim().slice(0,300)});
   platform.addAudit(req.user.email||req.user.phone, 'طلب شراء عملات', `${order.id} - ${order.coins} عملة`);
   res.status(201).json({ok:true,order});
 });
@@ -532,18 +534,21 @@ app.patch('/api/admin/payments/:id', adminMiddleware, permit('managePayments'), 
   platform.addAudit(req.admin.email,status==='approved'?'تأكيد دفع وإضافة عملات':'تحديث طلب دفع',`${order.id} - ${status}`);
   res.json({ok:true,order:updated});
 });
-app.post('/api/admin/coin-packages', adminMiddleware, permit('managePayments'), (req,res)=>{
+app.post('/api/admin/coin-packages', adminMiddleware, permit('manageCoinPackages'), (req,res)=>{
   const b=req.body||{};const id=String(b.id||`pack_${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g,'');
-  const item=platform.saveCoinPackage({id,name:String(b.name||'باقة عملات').slice(0,50),coins:Math.max(1,parseInt(b.coins,10)||1),price:Math.max(0,Number(b.price)||0),currency:String(b.currency||'DZD').slice(0,8),enabled:b.enabled!==false});
+  const item=platform.saveCoinPackage({id,name:String(b.name||'باقة عملات').slice(0,50),coins:Math.max(1,parseInt(b.coins,10)||1),price:Math.max(0,Number(b.price)||0),currency:'USD',enabled:b.enabled!==false});
   platform.addAudit(req.admin.email,'حفظ باقة عملات',item.name);res.json({ok:true,item});
 });
-app.delete('/api/admin/coin-packages/:id', adminMiddleware, permit('managePayments'), (req,res)=>res.json({ok:platform.deleteCoinPackage(req.params.id)}));
-app.post('/api/admin/payment-methods', adminMiddleware, permit('managePayments'), (req,res)=>{
-  const b=req.body||{};const id=String(b.id||`method_${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g,'');
-  const item=platform.savePaymentMethod({id,name:String(b.name||'وسيلة دفع').slice(0,50),account:String(b.account||'').slice(0,150),enabled:b.enabled!==false});
-  platform.addAudit(req.admin.email,'حفظ وسيلة دفع',item.name);res.json({ok:true,item});
+app.delete('/api/admin/coin-packages/:id', adminMiddleware, permit('manageCoinPackages'), (req,res)=>res.json({ok:platform.deleteCoinPackage(req.params.id)}));
+app.post('/api/admin/payment-methods', adminMiddleware, permit('managePaymentConfig'), (req,res)=>{
+  const b=req.body||{};
+  const network=String(b.network||'TRC20').toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,20);
+  const account=String(b.account||'').trim().slice(0,150);
+  if(account.length<10) return res.status(400).json({error:'عنوان محفظة USDT غير صالح أو قصير جداً.'});
+  const item=platform.savePaymentMethod({id:'usdt',name:'USDT',network,account,enabled:true});
+  platform.addAudit(req.admin.email,'تحديث محفظة استلام USDT',`الشبكة: ${network}`);res.json({ok:true,item});
 });
-app.delete('/api/admin/payment-methods/:id', adminMiddleware, permit('managePayments'), (req,res)=>res.json({ok:platform.deletePaymentMethod(req.params.id)}));
+app.delete('/api/admin/payment-methods/:id', adminMiddleware, permit('managePaymentConfig'), (req,res)=>res.status(405).json({error:'لا يمكن حذف محفظة USDT الأساسية، يمكن للمالك تغيير عنوانها فقط.'}));
 
 function publicPlatformConfig() {
   const s = platform.getSettings();

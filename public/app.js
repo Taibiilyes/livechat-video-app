@@ -603,10 +603,10 @@
   }
   function renderCoinStore() {
     $('#coin-packages-list').innerHTML = state.coinPackages.map(p => `<button type="button" class="coin-package ${p.id===state.selectedPackageId?'active':''}" data-package="${escapeHtml(p.id)}"><span>🪙 ${Number(p.coins).toLocaleString()}</span><b>${escapeHtml(p.name)}</b><small>${Number(p.price).toLocaleString()} ${escapeHtml(p.currency)}</small></button>`).join('');
-    $('#payment-method-select').innerHTML = state.paymentMethods.map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name)}</option>`).join('');
+    $('#payment-method-select').innerHTML = state.paymentMethods.map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name)} — ${escapeHtml(m.network || 'TRC20')}</option>`).join('');
     updatePaymentAccount();
   }
-  function updatePaymentAccount() { const m=state.paymentMethods.find(x=>x.id===$('#payment-method-select').value)||state.paymentMethods[0]; $('#payment-account-info').textContent=m?`حوّل المبلغ إلى: ${m.account}`:'لا توجد وسيلة دفع متاحة'; }
+  function updatePaymentAccount() { const m=state.paymentMethods.find(x=>x.id===$('#payment-method-select').value)||state.paymentMethods[0]; const pack=state.coinPackages.find(p=>p.id===state.selectedPackageId); $('#payment-account-info').innerHTML=m&&m.account?`حوّل بالضبط <b>${Number(pack?.price||0).toLocaleString()} USDT</b> عبر شبكة <b>${escapeHtml(m.network||'TRC20')}</b><br><span dir="ltr">${escapeHtml(m.account)}</span>`:'لم يضبط المالك محفظة استقبال USDT بعد'; }
   $('#coin-packages-list').addEventListener('click',e=>{const b=e.target.closest('[data-package]');if(b){state.selectedPackageId=b.dataset.package;renderCoinStore();}});
   $('#payment-method-select').addEventListener('change',updatePaymentAccount);
   $('#btn-open-coin-store').addEventListener('click',openCoinStore);

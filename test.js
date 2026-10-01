@@ -59,6 +59,18 @@ async function runTests() {
     if (gifts.status !== 200 || !Array.isArray(gifts.body.gifts)) throw new Error('Gifts catalog failed');
     console.log(`4. Interactive Gifts Catalog (${gifts.body.gifts.length} Gifts): PASSED ✅`);
 
+    // Prepare the owner-only USDT wallet for the payment workflow.
+    const adminLogin = await request('/api/admin/login', 'POST', {
+      email: process.env.ADMIN_EMAIL || 'servinfoh@gmail.com',
+      password: process.env.ADMIN_PASSWORD || 'TaTe1989'
+    });
+    if (adminLogin.status !== 200 || !adminLogin.body.token) throw new Error('Admin login failed');
+    const adminToken = adminLogin.body.token;
+    const walletSetup = await request('/api/admin/payment-methods', 'POST', {
+      network: 'TRC20', account: 'TTestWalletAddress1234567890'
+    }, adminToken);
+    if (walletSetup.status !== 200) throw new Error('USDT wallet setup failed');
+
     // 5. Coin purchase and payment request
     const coinStore = await request('/api/coin-store');
     if (coinStore.status !== 200 || !coinStore.body.packages?.length || !coinStore.body.methods?.length) throw new Error('Coin store failed');
@@ -84,13 +96,7 @@ async function runTests() {
     console.log(`7. Top Streamers & Gifters Leaderboard: PASSED ✅`);
 
     // 8. Admin Authentication
-    const adminLogin = await request('/api/admin/login', 'POST', {
-      email: process.env.ADMIN_EMAIL || 'servinfoh@gmail.com',
-      password: process.env.ADMIN_PASSWORD || 'TaTe1989'
-    });
-    if (adminLogin.status !== 200 || !adminLogin.body.token) throw new Error('Admin login failed');
-    const adminToken = adminLogin.body.token;
-    console.log('8. Admin Secure Authentication: PASSED ✅');
+    console.log('8. Owner Authentication & USDT Wallet Control: PASSED ✅');
 
     // 9. User & Content Management
     const [adminUsers, adminStreams, adminMessages] = await Promise.all([
@@ -127,8 +133,9 @@ async function runTests() {
     if (sellerCreate.status !== 201 || sellerLogin.status !== 200) throw new Error('Seller role setup failed');
     const sellerPayments = await request('/api/admin/payments', 'GET', null, sellerLogin.body.token);
     const sellerSettings = await request('/api/admin/settings', 'GET', null, sellerLogin.body.token);
+    const sellerWalletEdit = await request('/api/admin/payment-methods', 'POST', { network: 'TRC20', account: 'TUnauthorizedWallet12345' }, sellerLogin.body.token);
     await request(`/api/admin/users/${sellerCreate.body.id}`, 'DELETE', null, adminToken);
-    if (sellerPayments.status !== 200 || sellerSettings.status !== 403) throw new Error('Role permission enforcement failed');
+    if (sellerPayments.status !== 200 || sellerSettings.status !== 403 || sellerWalletEdit.status !== 403) throw new Error('Role permission enforcement failed');
     console.log('12. Owner, Admin, Moderator, Seller & Member Permissions: PASSED ✅');
 
     console.log('\n🎉 ALL 12 LIVECHAT TESTS PASSED 100% SUCCESSFULLY! 🎉\n');
