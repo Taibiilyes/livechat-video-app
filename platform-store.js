@@ -8,7 +8,7 @@ const file = path.join(dataDir, 'platform_config.json');
 const DEFAULT_SETTINGS = {
   siteName: 'LiveChat',
   tagline: 'منصة البث المباشر والتفاعل والهدايا والمكالمات الفورية',
-  version: '1.2.0',
+  version: '1.3.0',
   supportEmail: 'support@livechat.local',
   primaryColor: '#ff72ad',
   secondaryColor: '#9b8afb',
@@ -22,6 +22,16 @@ const DEFAULT_SETTINGS = {
   maxMessageLength: 500
 };
 
+const DEFAULT_COIN_PACKAGES = [
+  { id: 'coins_500', name: 'باقة البداية', coins: 500, price: 500, currency: 'DZD', enabled: true },
+  { id: 'coins_1500', name: 'باقة التوفير', coins: 1500, price: 1200, currency: 'DZD', enabled: true },
+  { id: 'coins_5000', name: 'باقة VIP', coins: 5000, price: 3500, currency: 'DZD', enabled: true }
+];
+const DEFAULT_PAYMENT_METHODS = [
+  { id: 'baridimob', name: 'بريدي موب', account: '00799999000000000000', enabled: true },
+  { id: 'ccp', name: 'الحساب البريدي CCP', account: '00000000 مفتاح 00', enabled: true }
+];
+
 const DEFAULT_GIFTS = [
   { id: 'rose', name: 'وردة حمراء', icon: '🌹', coins: 1, enabled: true },
   { id: 'heart', name: 'قلب ناري', icon: '💖', coins: 5, enabled: true },
@@ -33,7 +43,7 @@ const DEFAULT_GIFTS = [
   { id: 'castle', name: 'قصر الأحلام', icon: '🏰', coins: 1000, enabled: true }
 ];
 
-let state = { settings: { ...DEFAULT_SETTINGS }, gifts: DEFAULT_GIFTS, announcements: [], audit: [] };
+let state = { settings: { ...DEFAULT_SETTINGS }, gifts: DEFAULT_GIFTS, announcements: [], audit: [], coinPackages: DEFAULT_COIN_PACKAGES, paymentMethods: DEFAULT_PAYMENT_METHODS, paymentOrders: [] };
 try {
   if (fs.existsSync(file)) {
     const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -41,12 +51,16 @@ try {
       settings: { ...DEFAULT_SETTINGS, ...(saved.settings || {}) },
       gifts: Array.isArray(saved.gifts) ? saved.gifts : DEFAULT_GIFTS,
       announcements: Array.isArray(saved.announcements) ? saved.announcements : [],
-      audit: Array.isArray(saved.audit) ? saved.audit : []
+      audit: Array.isArray(saved.audit) ? saved.audit : [],
+      coinPackages: Array.isArray(saved.coinPackages) ? saved.coinPackages : DEFAULT_COIN_PACKAGES,
+      paymentMethods: Array.isArray(saved.paymentMethods) ? saved.paymentMethods : DEFAULT_PAYMENT_METHODS,
+      paymentOrders: Array.isArray(saved.paymentOrders) ? saved.paymentOrders : []
     };
   }
 } catch (e) {
   console.error('Failed to load platform settings:', e.message);
 }
+if (state.settings.version === '1.2.0') state.settings.version = '1.3.0';
 
 function save() {
   fs.writeFileSync(file, JSON.stringify(state, null, 2), 'utf8');
@@ -100,8 +114,31 @@ function addAudit(admin, action, details = '') {
 }
 function getAudit(limit = 100) { return state.audit.slice(0, limit); }
 
+function getCoinPackages(includeDisabled = true) {
+  return (includeDisabled ? state.coinPackages : state.coinPackages.filter(p => p.enabled !== false)).map(p => ({ ...p }));
+}
+function saveCoinPackage(item) {
+  const idx = state.coinPackages.findIndex(p => p.id === item.id);
+  if (idx >= 0) state.coinPackages[idx] = { ...state.coinPackages[idx], ...item };
+  else state.coinPackages.push({ ...item });
+  save(); return { ...state.coinPackages.find(p => p.id === item.id) };
+}
+function deleteCoinPackage(id) { const n=state.coinPackages.length; state.coinPackages=state.coinPackages.filter(p=>p.id!==id); save(); return n!==state.coinPackages.length; }
+function getPaymentMethods(includeDisabled = true) { return (includeDisabled ? state.paymentMethods : state.paymentMethods.filter(m => m.enabled !== false)).map(m => ({ ...m })); }
+function savePaymentMethod(item) { const i=state.paymentMethods.findIndex(m=>m.id===item.id); if(i>=0)state.paymentMethods[i]={...state.paymentMethods[i],...item};else state.paymentMethods.push({...item});save();return {...state.paymentMethods.find(m=>m.id===item.id)}; }
+function deletePaymentMethod(id) { const n=state.paymentMethods.length; state.paymentMethods=state.paymentMethods.filter(m=>m.id!==id); save(); return n!==state.paymentMethods.length; }
+function createPaymentOrder(data) {
+  const order={ id:`pay_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, userId:data.userId, packageId:data.packageId, packageName:data.packageName, coins:data.coins, price:data.price, currency:data.currency, methodId:data.methodId, methodName:data.methodName, reference:data.reference||'', proofUrl:data.proofUrl||'', note:data.note||'', status:'pending', reviewedBy:null, reviewNote:'', createdAt:Date.now(), reviewedAt:null, creditedAt:null };
+  state.paymentOrders.unshift(order); save(); return { ...order };
+}
+function getPaymentOrders(filter = {}) { return state.paymentOrders.filter(o => (!filter.userId || o.userId===filter.userId) && (!filter.status || o.status===filter.status)).map(o=>({...o})); }
+function findPaymentOrder(id) { const o=state.paymentOrders.find(o=>o.id===id); return o||null; }
+function updatePaymentOrder(id, patch) { const o=findPaymentOrder(id); if(!o)return null; Object.assign(o,patch);save();return {...o}; }
+
 module.exports = {
   getSettings, updateSettings, getGifts, saveGift, deleteGift,
   getAnnouncements, addAnnouncement, updateAnnouncement, deleteAnnouncement,
-  addAudit, getAudit
+  addAudit, getAudit, getCoinPackages, saveCoinPackage, deleteCoinPackage,
+  getPaymentMethods, savePaymentMethod, deletePaymentMethod,
+  createPaymentOrder, getPaymentOrders, findPaymentOrder, updatePaymentOrder
 };

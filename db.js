@@ -37,6 +37,7 @@ try {
       level INTEGER DEFAULT 1,
       followers_count INTEGER DEFAULT 0,
       is_admin INTEGER DEFAULT 0,
+      role TEXT DEFAULT 'member',
       banned INTEGER DEFAULT 0,
       created_at INTEGER
     );
@@ -103,6 +104,7 @@ try {
     level: "INTEGER DEFAULT 1",
     followers_count: "INTEGER DEFAULT 0",
     is_admin: "INTEGER DEFAULT 0",
+    role: "TEXT DEFAULT 'member'",
     banned: "INTEGER DEFAULT 0"
   };
   for (const [col, def] of Object.entries(expected)) {
@@ -137,6 +139,7 @@ try {
       console.error('Failed to parse database file, starting fresh.');
     }
   }
+  tables.users.forEach(u => { if (!u.role) u.role = u.is_admin ? 'admin' : 'member'; });
 
   function persist() {
     try {
@@ -287,6 +290,7 @@ try {
               level: 1,
               followers_count: Math.floor(Math.random() * 50 + 10),
               is_admin: Number(parsed.is_admin) === 1 ? 1 : 0,
+              role: parsed.role || (Number(parsed.is_admin) === 1 ? 'admin' : 'member'),
               banned: 0,
               created_at: parsed.created_at || Date.now()
             };

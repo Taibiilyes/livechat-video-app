@@ -20,6 +20,7 @@
     currentCategory: 'all',
     studioStream: null,
     platformConfig: null,
+    coinPackages: [], paymentMethods: [], selectedPackageId: null,
     call: { pc: null, peerId: null, localStream: null, iceQueue: [], role: null },
   };
 
@@ -227,6 +228,7 @@
     loadStreams();
     loadGifts();
     loadLeaderboard();
+    loadMyPayments();
   }
 
   function updateUserUI() {
@@ -252,6 +254,9 @@
     if (profDiamonds) profDiamonds.textContent = (state.me.diamonds || 0).toLocaleString();
     const profFollowers = $('#prof-followers');
     if (profFollowers) profFollowers.textContent = state.me.followersCount || 12;
+    const roleLabels = { owner: 'المالك', admin: 'مسؤول', moderator: 'مراقب', seller: 'بائع عملات', member: 'عضو' };
+    const profLevel = $('#prof-level');
+    if (profLevel) profLevel.textContent = `${roleLabels[state.me.role] || 'عضو'} · Lv. ${state.me.level || 1}`;
   }
 
   $('#btn-logout').addEventListener('click', () => {
@@ -583,36 +588,33 @@
     }
   });
 
-  // ---------------- 5. Wallet Recharge ----------------
-  $$('.btn-recharge').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const amount = parseInt(btn.dataset.amount, 10);
-      try {
-        const res = await api('/api/wallet/topup', { method: 'POST', body: JSON.stringify({ amount }) });
-        state.me.coins = res.coins;
-        updateUserUI();
-        toast(res.message);
-      } catch (e) {
-        alert(e.error || 'تعذر الشحن');
-      }
-    });
-  });
+  // ---------------- 5. Coin Store & Payment Confirmation ----------------
+  $('#btn-open-wallet').addEventListener('click', () => $('[data-target="view-profile"]').click());
 
-  $('#btn-open-wallet').addEventListener('click', () => {
-    $('[data-target="view-profile"]').click();
-  });
-
-  const btnQuickAdd = $('#btn-quick-add-coins');
-  if (btnQuickAdd) {
-    btnQuickAdd.addEventListener('click', async () => {
-      try {
-        const res = await api('/api/wallet/topup', { method: 'POST', body: JSON.stringify({ amount: 1000 }) });
-        state.me.coins = res.coins;
-        updateUserUI();
-        toast('🎉 تم شحن 1,000 عملة مجاناً!');
-      } catch (e) { console.error(e); }
-    });
+  async function openCoinStore() {
+    try {
+      const data = await api('/api/coin-store');
+      state.coinPackages = data.packages || [];
+      state.paymentMethods = data.methods || [];
+      state.selectedPackageId = state.coinPackages[0]?.id || null;
+      renderCoinStore();
+      $('#coin-store-modal').classList.remove('hidden');
+    } catch (e) { toast(e.error || 'تعذر فتح متجر العملات'); }
   }
+  function renderCoinStore() {
+    $('#coin-packages-list').innerHTML = state.coinPackages.map(p => `<button type="button" class="coin-package ${p.id===state.selectedPackageId?'active':''}" data-package="${escapeHtml(p.id)}"><span>🪙 ${Number(p.coins).toLocaleString()}</span><b>${escapeHtml(p.name)}</b><small>${Number(p.price).toLocaleString()} ${escapeHtml(p.currency)}</small></button>`).join('');
+    $('#payment-method-select').innerHTML = state.paymentMethods.map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name)}</option>`).join('');
+    updatePaymentAccount();
+  }
+  function updatePaymentAccount() { const m=state.paymentMethods.find(x=>x.id===$('#payment-method-select').value)||state.paymentMethods[0]; $('#payment-account-info').textContent=m?`حوّل المبلغ إلى: ${m.account}`:'لا توجد وسيلة دفع متاحة'; }
+  $('#coin-packages-list').addEventListener('click',e=>{const b=e.target.closest('[data-package]');if(b){state.selectedPackageId=b.dataset.package;renderCoinStore();}});
+  $('#payment-method-select').addEventListener('change',updatePaymentAccount);
+  $('#btn-open-coin-store').addEventListener('click',openCoinStore);
+  $('#btn-close-coin-store').addEventListener('click',()=>$('#coin-store-modal').classList.add('hidden'));
+  $('#coin-order-form').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/payments/orders',{method:'POST',body:JSON.stringify({packageId:state.selectedPackageId,methodId:$('#payment-method-select').value,reference:$('#payment-reference').value,proofUrl:$('#payment-proof').value,note:$('#payment-note').value})});$('#coin-store-modal').classList.add('hidden');e.target.reset();toast('✅ تم إرسال الطلب، سيؤكد مسؤول البيع الدفع قريباً');loadMyPayments();}catch(err){toast(err.error||'تعذر إرسال طلب الدفع');}});
+  async function loadMyPayments(){if(!state.token)return;try{const d=await api('/api/payments/my');const labels={pending:'بانتظار التأكيد',approved:'تم الدفع والشحن',rejected:'مرفوض'};$('#my-payment-status').innerHTML=(d.orders||[]).slice(0,3).map(o=>`<div class="payment-status-row"><span>${escapeHtml(o.packageName)} — ${Number(o.coins).toLocaleString()} عملة</span><b class="${o.status}">${labels[o.status]}</b></div>`).join('');}catch(_){} }
+  const btnQuickAdd = $('#btn-quick-add-coins');
+  if (btnQuickAdd) btnQuickAdd.addEventListener('click',()=>{ $('#gifts-drawer-modal').classList.add('hidden'); openCoinStore(); });
 
   // ---------------- 6. Leaderboard ----------------
   async function loadLeaderboard() {

@@ -35,7 +35,7 @@ function findUserByEmail(email) {
 
 const UPDATABLE = [
   'display_name', 'email', 'phone', 'password_hash', 'verified',
-  'banned', 'is_admin', 'coins', 'diamonds', 'level', 'avatar_color'
+  'banned', 'is_admin', 'role', 'coins', 'diamonds', 'level', 'avatar_color'
 ];
 
 function updateUser(id, fields) {
@@ -96,6 +96,7 @@ function createAdminUser({ display_name, email, password_hash, avatar_color }) {
       level: 99,
       followers_count: 0,
       is_admin: 1,
+      role: 'owner',
       banned: 0,
       created_at: Date.now()
     };
@@ -106,8 +107,8 @@ function createAdminUser({ display_name, email, password_hash, avatar_color }) {
   const info = db.prepare(`
     INSERT INTO users (display_name, email, phone, password_hash, verified,
                        avatar_color, coins, diamonds, level, followers_count,
-                       is_admin, banned, created_at)
-    VALUES (?, ?, NULL, ?, 1, ?, 999999, 0, 99, 0, 1, 0, ?)
+                       is_admin, role, banned, created_at)
+    VALUES (?, ?, NULL, ?, 1, ?, 999999, 0, 99, 0, 1, 'owner', 0, ?)
   `).run(display_name, email, password_hash, avatar_color || '#ef4444', Date.now());
   return findUserById(info.lastInsertRowid);
 }
@@ -129,18 +130,20 @@ function createUser(data) {
       diamonds: data.diamonds || 0,
       level: data.level || 1,
       followers_count: 0,
-      is_admin: data.is_admin ? 1 : 0,
+      is_admin: ['owner', 'admin'].includes(data.role) || data.is_admin ? 1 : 0,
+      role: data.role || (data.is_admin ? 'admin' : 'member'),
       banned: 0,
       created_at: Date.now()
     };
     users.push(user); persist(); return user;
   }
+  const role = data.role || (data.is_admin ? 'admin' : 'member');
   const info = db.prepare(`INSERT INTO users
-    (display_name, email, phone, password_hash, verified, avatar_color, coins, diamonds, level, followers_count, is_admin, banned, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?)`)
+    (display_name, email, phone, password_hash, verified, avatar_color, coins, diamonds, level, followers_count, is_admin, role, banned, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 0, ?)`)
     .run(data.display_name, data.email || null, data.phone || null, data.password_hash,
       data.verified ? 1 : 0, data.avatar_color || '#8b5cf6', data.coins || 0,
-      data.diamonds || 0, data.level || 1, data.is_admin ? 1 : 0, Date.now());
+      data.diamonds || 0, data.level || 1, ['owner', 'admin'].includes(role) ? 1 : 0, role, Date.now());
   return findUserById(info.lastInsertRowid);
 }
 

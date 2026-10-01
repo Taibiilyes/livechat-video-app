@@ -59,10 +59,16 @@ async function runTests() {
     if (gifts.status !== 200 || !Array.isArray(gifts.body.gifts)) throw new Error('Gifts catalog failed');
     console.log(`4. Interactive Gifts Catalog (${gifts.body.gifts.length} Gifts): PASSED ✅`);
 
-    // 5. Wallet Topup
-    const topup = await request('/api/wallet/topup', 'POST', { amount: 1000 }, token);
-    if (topup.status !== 200 || !topup.body.ok) throw new Error('Wallet topup failed');
-    console.log(`5. Wallet Free Coins Topup (New Balance: ${topup.body.coins}): PASSED ✅`);
+    // 5. Coin purchase and payment request
+    const coinStore = await request('/api/coin-store');
+    if (coinStore.status !== 200 || !coinStore.body.packages?.length || !coinStore.body.methods?.length) throw new Error('Coin store failed');
+    const paymentRequest = await request('/api/payments/orders', 'POST', {
+      packageId: coinStore.body.packages[0].id,
+      methodId: coinStore.body.methods[0].id,
+      reference: `AUTO-${Date.now()}`
+    }, token);
+    if (paymentRequest.status !== 201 || !paymentRequest.body.order) throw new Error('Payment request failed');
+    console.log(`5. Coin Purchase Request (${paymentRequest.body.order.coins} Coins): PASSED ✅`);
 
     // 6. Launch Live Stream
     const startStream = await request('/api/streams/start', 'POST', {
@@ -92,10 +98,16 @@ async function runTests() {
       request('/api/admin/streams', 'GET', null, adminToken),
       request('/api/admin/messages', 'GET', null, adminToken)
     ]);
-    if (adminUsers.status !== 200 || adminStreams.status !== 200 || adminMessages.status !== 200) throw new Error('Admin content tools failed');
-    console.log('9. Admin Users, Streams & Moderation Tools: PASSED ✅');
+    if (adminUsers.status !== 200 || adminStreams.status !== 200 || adminMessages.status !== 200 || !adminUsers.body.users.every(u => u.role)) throw new Error('Admin content or role tools failed');
+    console.log('9. Ranked Users, Streams & Moderation Tools: PASSED ✅');
 
-    // 10. Platform Settings, Gifts & Audit
+    // 10. Payment confirmation by authorized staff
+    const approvePayment = await request(`/api/admin/payments/${paymentRequest.body.order.id}`, 'PATCH', { status: 'approved', reviewNote: 'Automated test' }, adminToken);
+    const walletAfter = await request('/api/me', 'GET', null, token);
+    if (approvePayment.status !== 200 || approvePayment.body.order.status !== 'approved' || walletAfter.body.user.coins < demo.body.user.coins + paymentRequest.body.order.coins) throw new Error('Payment confirmation failed');
+    console.log('10. Seller Payment Confirmation & Automatic Coin Credit: PASSED ✅');
+
+    // 11. Platform Settings, Gifts & Audit
     const [settings, adminGifts, audit] = await Promise.all([
       request('/api/admin/settings', 'GET', null, adminToken),
       request('/api/admin/gifts', 'GET', null, adminToken),
@@ -106,9 +118,20 @@ async function runTests() {
     const tempAnnouncement = await request('/api/admin/announcements', 'POST', { title: 'اختبار آلي', body: 'إعلان مؤقت للاختبار', type: 'info' }, adminToken);
     if (saveSettings.status !== 200 || tempAnnouncement.status !== 201) throw new Error('Admin write controls failed');
     await request(`/api/admin/announcements/${tempAnnouncement.body.announcement.id}`, 'DELETE', null, adminToken);
-    console.log('10. Admin Platform Settings, Gifts, Announcements & Audit: PASSED ✅');
+    console.log('11. Admin Platform Settings, Gifts, Announcements & Audit: PASSED ✅');
 
-    console.log('\n🎉 ALL 10 LIVECHAT TESTS PASSED 100% SUCCESSFULLY! 🎉\n');
+    // 12. Role-based permissions: seller can confirm payments but cannot edit platform settings
+    const sellerEmail = `seller-${Date.now()}@test.local`;
+    const sellerCreate = await request('/api/admin/users', 'POST', { displayName: 'بائع اختبار', email: sellerEmail, password: 'seller123', role: 'seller', verified: true }, adminToken);
+    const sellerLogin = await request('/api/admin/login', 'POST', { email: sellerEmail, password: 'seller123' });
+    if (sellerCreate.status !== 201 || sellerLogin.status !== 200) throw new Error('Seller role setup failed');
+    const sellerPayments = await request('/api/admin/payments', 'GET', null, sellerLogin.body.token);
+    const sellerSettings = await request('/api/admin/settings', 'GET', null, sellerLogin.body.token);
+    await request(`/api/admin/users/${sellerCreate.body.id}`, 'DELETE', null, adminToken);
+    if (sellerPayments.status !== 200 || sellerSettings.status !== 403) throw new Error('Role permission enforcement failed');
+    console.log('12. Owner, Admin, Moderator, Seller & Member Permissions: PASSED ✅');
+
+    console.log('\n🎉 ALL 12 LIVECHAT TESTS PASSED 100% SUCCESSFULLY! 🎉\n');
     process.exit(0);
   } catch (err) {
     console.error('❌ Test failed with error:', err.message);

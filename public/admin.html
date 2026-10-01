@@ -24,18 +24,19 @@
 <section id="dash-view" hidden>
   <header class="topbar">
     <div class="brand"><span class="logo">⚙️</span><div><b>مركز الإدارة</b><small>تحكم كامل بالمنصة</small></div></div>
-    <div class="topbar-right"><span id="admin-email" class="who"></span><button id="refresh-btn" class="ghost">↻ تحديث</button><button id="logout-btn" class="ghost danger">خروج</button></div>
+    <div class="topbar-right"><span id="admin-role" class="role-pill"></span><span id="admin-email" class="who"></span><button id="refresh-btn" class="ghost">↻ تحديث</button><button id="logout-btn" class="ghost danger">خروج</button></div>
   </header>
 
   <div class="admin-shell">
     <aside class="sidebar">
       <button class="tab active" data-tab="overview">📊 نظرة عامة</button>
-      <button class="tab" data-tab="users">👥 المستخدمون</button>
-      <button class="tab" data-tab="content">🎬 المحتوى والبثوث</button>
-      <button class="tab" data-tab="gifts">🎁 الهدايا والاقتصاد</button>
-      <button class="tab" data-tab="messages">🛡️ الإشراف والرسائل</button>
-      <button class="tab" data-tab="settings">🎨 إعدادات المنصة</button>
-      <button class="tab" data-tab="audit">📋 سجل التغييرات</button>
+      <button class="tab" data-tab="payments" data-permission="managePayments">💳 بيع العملات والدفع</button>
+      <button class="tab" data-tab="users" data-permission="viewUsers">👥 المستخدمون والرتب</button>
+      <button class="tab" data-tab="content" data-permission="manageContent">🎬 المحتوى والبثوث</button>
+      <button class="tab" data-tab="gifts" data-permission="manageGifts">🎁 الهدايا والاقتصاد</button>
+      <button class="tab" data-tab="messages" data-permission="moderateMessages">🛡️ الإشراف والرسائل</button>
+      <button class="tab" data-tab="settings" data-permission="manageSettings">🎨 إعدادات المنصة</button>
+      <button class="tab" data-tab="audit" data-permission="viewAudit">📋 سجل التغييرات</button>
       <a class="open-app" href="/" target="_blank">فتح المنصة ↗</a>
     </aside>
 
@@ -44,10 +45,22 @@
         <div class="page-head"><div><h1>نظرة عامة</h1><p>ملخص مباشر لحالة وتشغيل المنصة</p></div><span class="live-state">● بيانات مباشرة</span></div>
         <div id="stats" class="stats"></div>
         <div class="quick-grid">
-          <button class="quick" data-go="users"><span>👤</span><b>إضافة مستخدم</b><small>إنشاء وإدارة الحسابات</small></button>
-          <button class="quick" data-go="content"><span>📢</span><b>نشر إعلان</b><small>إشعار جميع المستخدمين</small></button>
-          <button class="quick" data-go="gifts"><span>🎁</span><b>إدارة الهدايا</b><small>الأسعار وحالة الظهور</small></button>
-          <button class="quick" data-go="settings"><span>⚙️</span><b>إعدادات التشغيل</b><small>المظهر والميزات والصيانة</small></button>
+          <button class="quick" data-go="payments" data-permission="managePayments"><span>💳</span><b>تأكيد المدفوعات</b><small>مراجعة الطلبات وشحن العملات</small></button>
+          <button class="quick" data-go="users" data-permission="manageUsers"><span>👤</span><b>إضافة مستخدم</b><small>إنشاء وإدارة الحسابات والرتب</small></button>
+          <button class="quick" data-go="content" data-permission="manageContent"><span>📢</span><b>نشر إعلان</b><small>إشعار جميع المستخدمين</small></button>
+          <button class="quick" data-go="gifts" data-permission="manageGifts"><span>🎁</span><b>إدارة الهدايا</b><small>الأسعار وحالة الظهور</small></button>
+          <button class="quick" data-go="settings" data-permission="manageSettings"><span>⚙️</span><b>إعدادات التشغيل</b><small>المظهر والميزات والصيانة</small></button>
+        </div>
+      </section>
+
+      <section class="panel-view" id="tab-payments" hidden>
+        <div class="page-head"><div><h1>بيع العملات وتأكيد الدفع</h1><p>مراجعة التحويلات، تأكيد الدفع، وإضافة العملات تلقائياً</p></div><select id="payment-status-filter" class="mini-select"><option value="">جميع الطلبات</option><option value="pending">بانتظار المراجعة</option><option value="approved">تم التأكيد</option><option value="rejected">مرفوض</option></select></div>
+        <div class="payment-layout">
+          <div class="panel"><div class="panel-head"><h2>طلبات شراء العملات</h2><span id="pending-count" class="badge b-warn"></span></div><div id="payments-list" class="payment-list"></div></div>
+          <div class="commerce-side">
+            <div class="panel"><div class="panel-head"><h2>باقات العملات</h2><button id="add-package-btn" class="primary small">+ باقة</button></div><div id="packages-list" class="list-pad"></div></div>
+            <div class="panel"><div class="panel-head"><h2>وسائل وحسابات الدفع</h2><button id="add-method-btn" class="primary small">+ وسيلة</button></div><div id="methods-list" class="list-pad"></div></div>
+          </div>
         </div>
       </section>
 

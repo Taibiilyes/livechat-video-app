@@ -18,7 +18,7 @@
         <i class="fa-solid fa-video"></i>
       </div>
       <h1 id="auth-site-name">LiveChat</h1>
-      <span class="version-badge" id="auth-version">الإصدار 1.2.0</span>
+      <span class="version-badge" id="auth-version">الإصدار 1.3.0</span>
       <p class="muted" id="auth-tagline">منصة البث المباشر والتفاعل والهدايا والمكالمات الفورية</p>
     </div>
 
@@ -107,7 +107,7 @@
         <span class="live-pulse-dot"></span>
         <span class="brand-title-stack">
           <span class="brand-name" id="header-site-name">LiveChat</span>
-          <small class="header-version" id="header-version">الإصدار 1.2.0</small>
+          <small class="header-version" id="header-version">الإصدار 1.3.0</small>
         </span>
       </div>
     </div>
@@ -127,7 +127,7 @@
       <div class="wallet-pill" id="btn-open-wallet" title="محفظة العملات">
         <span class="coin-icon">🪙</span>
         <span class="coin-amount" id="user-coins-display">500</span>
-        <button class="btn-add-coins" title="شحن مجاني">+</button>
+        <button class="btn-add-coins" title="شراء العملات">+</button>
       </div>
 
       <div class="diamonds-pill" title="الماس المكتسب">
@@ -276,13 +276,10 @@
         </div>
 
         <div class="wallet-recharge-section">
-          <h4><i class="fa-solid fa-wallet"></i> شحن المحفظة التجريبية</h4>
-          <p>اشحن عملات ذهبية مجاناً لإرسال الهدايا للستريمرز</p>
-          <div class="recharge-options">
-            <button class="btn-recharge" data-amount="500">🪙 +500 عملة</button>
-            <button class="btn-recharge" data-amount="2000">🪙 +2,000 عملة</button>
-            <button class="btn-recharge" data-amount="10000">🪙 +10,000 عملة</button>
-          </div>
+          <h4><i class="fa-solid fa-wallet"></i> شراء العملات</h4>
+          <p>اختر باقة، حوّل المبلغ، ثم أرسل مرجع الدفع ليؤكده مسؤول البيع</p>
+          <button id="btn-open-coin-store" class="btn-primary"><i class="fa-solid fa-coins"></i> فتح متجر العملات وطلب الشحن</button>
+          <div id="my-payment-status" class="my-payment-status"></div>
         </div>
       </div>
     </section>
@@ -411,6 +408,22 @@
     <div class="gifts-grid-container" id="gifts-grid-container">
       <!-- Populated by JS -->
     </div>
+  </div>
+</div>
+
+<!-- ===================== متجر العملات وإثبات الدفع ===================== -->
+<div id="coin-store-modal" class="coin-store-modal hidden">
+  <div class="coin-store-card">
+    <div class="coin-store-head"><div><h3>🪙 متجر العملات</h3><p>اختر الباقة ووسيلة الدفع ثم أرسل رقم العملية</p></div><button id="btn-close-coin-store">×</button></div>
+    <form id="coin-order-form">
+      <label>باقة العملات</label><div id="coin-packages-list" class="coin-packages-list"></div>
+      <label>وسيلة الدفع</label><select id="payment-method-select" required></select>
+      <div id="payment-account-info" class="payment-account-info"></div>
+      <label>رقم مرجع عملية الدفع</label><input id="payment-reference" type="text" placeholder="رقم العملية أو التحويل" required>
+      <label>رابط صورة إثبات الدفع (اختياري)</label><input id="payment-proof" type="text" placeholder="https://...">
+      <label>ملاحظة (اختياري)</label><input id="payment-note" type="text" placeholder="أي معلومات إضافية">
+      <button class="btn-primary" type="submit">إرسال طلب تأكيد الدفع</button>
+    </form>
   </div>
 </div>
 

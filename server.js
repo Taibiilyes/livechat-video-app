@@ -20,6 +20,18 @@ const io = new Server(server, { cors: { origin: '*' } });
 const JWT_SECRET = process.env.JWT_SECRET || 'livechat_jwt_secret_key_2026';
 const CODE_TTL_MS = 10 * 60 * 1000;
 const AVATAR_COLORS = ['#ec4899', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#6366f1'];
+const STAFF_ROLES = ['owner', 'admin', 'moderator', 'seller'];
+const ROLE_PERMISSIONS = {
+  owner: ['*'],
+  admin: ['viewStats','viewUsers','manageUsers','manageContent','manageGifts','managePayments','moderateMessages','manageSettings','viewAudit'],
+  moderator: ['viewStats','viewUsers','manageContent','moderateMessages'],
+  seller: ['viewStats','viewUsers','managePayments'],
+  member: []
+};
+function userRole(user) { return user.role || (user.is_admin ? 'admin' : 'member'); }
+function permissionsFor(user) { return ROLE_PERMISSIONS[userRole(user)] || []; }
+function hasPermission(user, permission) { const p=permissionsFor(user); return p.includes('*') || p.includes(permission); }
+function permit(permission) { return (req,res,next) => hasPermission(req.admin,permission) ? next() : res.status(403).json({ error: 'رتبتك لا تسمح بهذا الإجراء.' }); }
 
 app.use(express.json());
 app.use(cookieParser());
@@ -49,6 +61,7 @@ function publicUser(u) {
     diamonds: u.diamonds || 0,
     level: u.level || 1,
     followersCount: u.followers_count || 12,
+    role: userRole(u),
     verified: !!u.verified,
   };
 }
@@ -62,7 +75,7 @@ function issueToken(user) {
 }
 
 function issueAdminToken(user) {
-  return jwt.sign({ uid: user.id, role: 'admin' }, JWT_SECRET, { expiresIn: '12h' });
+  return jwt.sign({ uid: user.id, scope: 'admin', accountRole: userRole(user) }, JWT_SECRET, { expiresIn: '12h' });
 }
 
 // Admin account bootstrap (configurable through env vars)
@@ -76,7 +89,7 @@ async function ensureAdminUser() {
     const existing = store.findUserByEmail(ADMIN_EMAIL);
     if (existing) {
       store.updateUser(existing.id, {
-        password_hash: hash, is_admin: 1, verified: 1, banned: 0
+        password_hash: hash, is_admin: 1, role: 'owner', verified: 1, banned: 0
       });
       console.log('🛡️  Admin account refreshed:', ADMIN_EMAIL);
     } else {
@@ -187,9 +200,9 @@ function adminMiddleware(req, res, next) {
   if (!token) return res.status(401).json({ error: 'غير مصرح، الرجاء تسجيل الدخول كمسؤول' });
   try {
     const payload = jwt.verify(token, JWT_SECRET);
-    if (payload.role !== 'admin') return res.status(403).json({ error: 'هذه الصفحة مخصصة للمسؤولين فقط' });
+    if (payload.scope !== 'admin') return res.status(403).json({ error: 'هذه الصفحة مخصصة لفريق الإدارة فقط' });
     const user = store.findUserById(payload.uid);
-    if (!user || !user.is_admin) return res.status(403).json({ error: 'صلاحيات المسؤول غير متوفرة' });
+    if (!user || !STAFF_ROLES.includes(userRole(user))) return res.status(403).json({ error: 'صلاحيات فريق الإدارة غير متوفرة' });
     req.admin = user;
     next();
   } catch (e) {
@@ -210,15 +223,15 @@ app.post('/api/admin/login', async (req, res) => {
     if (!email || !password) return res.status(400).json({ error: 'الرجاء إدخال البريد وكلمة المرور.' });
 
     const user = store.findUserByEmail(email);
-    if (!user || !user.is_admin) {
-      return res.status(401).json({ error: 'بيانات الدخول غير صحيحة.' });
+    if (!user || !STAFF_ROLES.includes(userRole(user))) {
+      return res.status(401).json({ error: 'الحساب لا يملك رتبة إدارية.' });
     }
     const ok = await bcrypt.compare(password, user.password_hash || '');
     if (!ok) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة.' });
 
     const token = issueAdminToken(user);
     res.cookie('admin_token', token, { httpOnly: true, sameSite: 'lax', maxAge: 12 * 3600 * 1000 });
-    res.json({ ok: true, token, admin: { id: user.id, displayName: user.display_name, email: user.email } });
+    res.json({ ok: true, token, admin: { id: user.id, displayName: user.display_name, email: user.email, role: userRole(user), permissions: permissionsFor(user) } });
   } catch (e) {
     res.status(500).json({ error: 'خطأ في تسجيل دخول المسؤول: ' + e.message });
   }
@@ -230,10 +243,10 @@ app.post('/api/admin/logout', (req, res) => {
 });
 
 app.get('/api/admin/me', adminMiddleware, (req, res) => {
-  res.json({ admin: { id: req.admin.id, displayName: req.admin.display_name, email: req.admin.email } });
+  res.json({ admin: { id: req.admin.id, displayName: req.admin.display_name, email: req.admin.email, role: userRole(req.admin), permissions: permissionsFor(req.admin) } });
 });
 
-app.get('/api/admin/stats', adminMiddleware, (req, res) => {
+app.get('/api/admin/stats', adminMiddleware, permit('viewStats'), (req, res) => {
   const users = store.allUsers();
   const streams = Array.from(activeLiveStreams.values());
   res.json({
@@ -246,12 +259,14 @@ app.get('/api/admin/stats', adminMiddleware, (req, res) => {
     totalMessages: store.messageCount(),
     totalCoins: users.reduce((n, u) => n + (u.coins || 0), 0),
     totalDiamonds: users.reduce((n, u) => n + (u.diamonds || 0), 0),
+    roleCounts: ['owner','admin','moderator','seller','member'].reduce((out,role)=>{out[role]=users.filter(u=>userRole(u)===role).length;return out;},{}),
+    pendingPayments: platform.getPaymentOrders({status:'pending'}).length,
     engine: store.isFallback ? 'JSON-DB (fallback)' : 'SQLite (better-sqlite3)',
     uptimeSeconds: Math.round(process.uptime())
   });
 });
 
-app.get('/api/admin/users', adminMiddleware, (req, res) => {
+app.get('/api/admin/users', adminMiddleware, permit('viewUsers'), (req, res) => {
   const q = String(req.query.q || '').toLowerCase().trim();
   let users = store.allUsers();
   if (q) {
@@ -270,7 +285,8 @@ app.get('/api/admin/users', adminMiddleware, (req, res) => {
       phone: u.phone,
       verified: !!u.verified,
       banned: !!u.banned,
-      isAdmin: !!u.is_admin,
+      isAdmin: ['owner','admin'].includes(userRole(u)),
+      role: userRole(u),
       coins: u.coins || 0,
       diamonds: u.diamonds || 0,
       level: u.level || 1,
@@ -281,7 +297,7 @@ app.get('/api/admin/users', adminMiddleware, (req, res) => {
   });
 });
 
-app.post('/api/admin/users', adminMiddleware, async (req, res) => {
+app.post('/api/admin/users', adminMiddleware, permit('manageUsers'), async (req, res) => {
   const b = req.body || {};
   const displayName = String(b.displayName || '').trim();
   const email = String(b.email || '').toLowerCase().trim() || null;
@@ -290,10 +306,12 @@ app.post('/api/admin/users', adminMiddleware, async (req, res) => {
     return res.status(400).json({ error: 'الاسم ووسيلة تواصل وكلمة مرور من 6 أحرف مطلوبة.' });
   }
   if (email && store.findUserByEmail(email)) return res.status(409).json({ error: 'البريد مستخدم مسبقاً.' });
+  const requestedRole=['owner','admin','moderator','seller','member'].includes(b.role)?b.role:'member';
+  if(requestedRole==='owner'&&userRole(req.admin)!=='owner') return res.status(403).json({error:'المالك فقط يمكنه إنشاء مالك آخر.'});
   const user = store.createUser({
     display_name: displayName, email, phone,
     password_hash: await bcrypt.hash(String(b.password), 10),
-    verified: b.verified !== false, is_admin: !!b.isAdmin,
+    verified: b.verified !== false, role: requestedRole,
     coins: Math.max(0, parseInt(b.coins, 10) || platform.getSettings().defaultCoins),
     level: Math.max(1, parseInt(b.level, 10) || 1), avatar_color: b.avatarColor
   });
@@ -301,7 +319,7 @@ app.post('/api/admin/users', adminMiddleware, async (req, res) => {
   res.status(201).json({ ok: true, id: user.id });
 });
 
-app.patch('/api/admin/users/:id', adminMiddleware, async (req, res) => {
+app.patch('/api/admin/users/:id', adminMiddleware, permit('manageUsers'), async (req, res) => {
   const user = store.findUserById(req.params.id);
   if (!user) return res.status(404).json({ error: 'المستخدم غير موجود.' });
 
@@ -316,14 +334,19 @@ app.patch('/api/admin/users/:id', adminMiddleware, async (req, res) => {
   if (b.coins !== undefined) fields.coins = Math.max(0, parseInt(b.coins, 10) || 0);
   if (b.diamonds !== undefined) fields.diamonds = Math.max(0, parseInt(b.diamonds, 10) || 0);
   if (b.level !== undefined) fields.level = Math.max(1, parseInt(b.level, 10) || 1);
-  if (b.isAdmin !== undefined) fields.is_admin = b.isAdmin ? 1 : 0;
+  if (b.role !== undefined && ['owner','admin','moderator','seller','member'].includes(b.role)) {
+    if (b.role === 'owner' && userRole(req.admin) !== 'owner') return res.status(403).json({ error: 'المالك فقط يمكنه منح رتبة المالك.' });
+    fields.role = b.role;
+    fields.is_admin = ['owner','admin'].includes(b.role) ? 1 : 0;
+  }
   if (b.password) fields.password_hash = await bcrypt.hash(String(b.password), 10);
 
   if (user.is_admin && fields.banned === 1) {
     return res.status(400).json({ error: 'لا يمكن حظر حساب مسؤول.' });
   }
-  if (user.id === req.admin.id && fields.is_admin === 0) {
-    return res.status(400).json({ error: 'لا يمكنك إزالة صلاحياتك الإدارية.' });
+  if (userRole(user) === 'owner' && userRole(req.admin) !== 'owner') return res.status(403).json({ error: 'لا يمكن تعديل حساب المالك.' });
+  if (user.id === req.admin.id && fields.role && fields.role !== userRole(user)) {
+    return res.status(400).json({ error: 'لا يمكنك تغيير رتبتك بنفسك.' });
   }
 
   const updated = store.updateUser(user.id, fields);
@@ -331,10 +354,10 @@ app.patch('/api/admin/users/:id', adminMiddleware, async (req, res) => {
   if (fields.banned === 1) {
     io.emit('admin:banned', { userId: user.id });
   }
-  res.json({ ok: true, user: { id: updated.id, verified: !!updated.verified, banned: !!updated.banned, coins: updated.coins, diamonds: updated.diamonds, level: updated.level, displayName: updated.display_name } });
+  res.json({ ok: true, user: { id: updated.id, verified: !!updated.verified, banned: !!updated.banned, coins: updated.coins, diamonds: updated.diamonds, level: updated.level, displayName: updated.display_name, role: userRole(updated) } });
 });
 
-app.delete('/api/admin/users/:id', adminMiddleware, (req, res) => {
+app.delete('/api/admin/users/:id', adminMiddleware, permit('manageUsers'), (req, res) => {
   const user = store.findUserById(req.params.id);
   if (!user) return res.status(404).json({ error: 'المستخدم غير موجود.' });
   if (user.is_admin) return res.status(400).json({ error: 'لا يمكن حذف حساب مسؤول.' });
@@ -343,11 +366,11 @@ app.delete('/api/admin/users/:id', adminMiddleware, (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/admin/streams', adminMiddleware, (req, res) => {
+app.get('/api/admin/streams', adminMiddleware, permit('manageContent'), (req, res) => {
   res.json({ streams: Array.from(activeLiveStreams.values()) });
 });
 
-app.delete('/api/admin/streams/:id', adminMiddleware, (req, res) => {
+app.delete('/api/admin/streams/:id', adminMiddleware, permit('manageContent'), (req, res) => {
   const id = req.params.id;
   if (!activeLiveStreams.has(id)) return res.status(404).json({ error: 'البث غير موجود.' });
   activeLiveStreams.delete(id);
@@ -356,7 +379,7 @@ app.delete('/api/admin/streams/:id', adminMiddleware, (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/admin/messages', adminMiddleware, (req, res) => {
+app.get('/api/admin/messages', adminMiddleware, permit('moderateMessages'), (req, res) => {
   const limit = Math.min(100, parseInt(req.query.limit, 10) || 20);
   const rows = store.recentMessages(limit);
   res.json({
@@ -367,22 +390,22 @@ app.get('/api/admin/messages', adminMiddleware, (req, res) => {
   });
 });
 
-app.delete('/api/admin/messages/:id', adminMiddleware, (req, res) => {
+app.delete('/api/admin/messages/:id', adminMiddleware, permit('moderateMessages'), (req, res) => {
   if (!store.deleteMessage(req.params.id)) return res.status(404).json({ error: 'الرسالة غير موجودة.' });
   platform.addAudit(req.admin.email, 'حذف رسالة', `رسالة #${req.params.id}`);
   res.json({ ok: true });
 });
 
-app.get('/api/admin/settings', adminMiddleware, (req, res) => {
+app.get('/api/admin/settings', adminMiddleware, permit('manageSettings'), (req, res) => {
   res.json({ settings: platform.getSettings() });
 });
 
-app.patch('/api/admin/settings', adminMiddleware, (req, res) => {
+app.patch('/api/admin/settings', adminMiddleware, permit('manageSettings'), (req, res) => {
   const b = req.body || {};
   const patch = {
     siteName: String(b.siteName || 'LiveChat').trim().slice(0, 40),
     tagline: String(b.tagline || '').trim().slice(0, 160),
-    version: String(b.version || '1.2.0').trim().slice(0, 20),
+    version: String(b.version || '1.3.0').trim().slice(0, 20),
     supportEmail: String(b.supportEmail || '').trim().slice(0, 100),
     primaryColor: /^#[0-9a-f]{6}$/i.test(b.primaryColor) ? b.primaryColor : '#ff72ad',
     secondaryColor: /^#[0-9a-f]{6}$/i.test(b.secondaryColor) ? b.secondaryColor : '#9b8afb',
@@ -401,8 +424,8 @@ app.patch('/api/admin/settings', adminMiddleware, (req, res) => {
   res.json({ ok: true, settings });
 });
 
-app.get('/api/admin/gifts', adminMiddleware, (req, res) => res.json({ gifts: platform.getGifts(true) }));
-app.post('/api/admin/gifts', adminMiddleware, (req, res) => {
+app.get('/api/admin/gifts', adminMiddleware, permit('manageGifts'), (req, res) => res.json({ gifts: platform.getGifts(true) }));
+app.post('/api/admin/gifts', adminMiddleware, permit('manageGifts'), (req, res) => {
   const b = req.body || {};
   const id = String(b.id || b.name || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 30) || `gift_${Date.now()}`;
   const gift = platform.saveGift({ id, name: String(b.name || 'هدية').trim().slice(0, 40), icon: String(b.icon || '🎁').slice(0, 8), coins: Math.max(1, parseInt(b.coins, 10) || 1), enabled: b.enabled !== false });
@@ -410,7 +433,7 @@ app.post('/api/admin/gifts', adminMiddleware, (req, res) => {
   platform.addAudit(req.admin.email, 'حفظ هدية', `${gift.icon} ${gift.name}`);
   res.json({ ok: true, gift });
 });
-app.patch('/api/admin/gifts/:id', adminMiddleware, (req, res) => {
+app.patch('/api/admin/gifts/:id', adminMiddleware, permit('manageGifts'), (req, res) => {
   if (!platform.getGifts(true).some(g => g.id === req.params.id)) return res.status(404).json({ error: 'الهدية غير موجودة.' });
   const b = req.body || {};
   const gift = platform.saveGift({ id: req.params.id, ...(b.name !== undefined ? { name: String(b.name).trim().slice(0, 40) } : {}), ...(b.icon !== undefined ? { icon: String(b.icon).slice(0, 8) } : {}), ...(b.coins !== undefined ? { coins: Math.max(1, parseInt(b.coins, 10) || 1) } : {}), ...(b.enabled !== undefined ? { enabled: !!b.enabled } : {}) });
@@ -418,15 +441,15 @@ app.patch('/api/admin/gifts/:id', adminMiddleware, (req, res) => {
   platform.addAudit(req.admin.email, 'تعديل هدية', gift.name);
   res.json({ ok: true, gift });
 });
-app.delete('/api/admin/gifts/:id', adminMiddleware, (req, res) => {
+app.delete('/api/admin/gifts/:id', adminMiddleware, permit('manageGifts'), (req, res) => {
   if (!platform.deleteGift(req.params.id)) return res.status(404).json({ error: 'الهدية غير موجودة.' });
   GIFTS_CATALOG = platform.getGifts(true);
   platform.addAudit(req.admin.email, 'حذف هدية', req.params.id);
   res.json({ ok: true });
 });
 
-app.get('/api/admin/announcements', adminMiddleware, (req, res) => res.json({ announcements: platform.getAnnouncements() }));
-app.post('/api/admin/announcements', adminMiddleware, (req, res) => {
+app.get('/api/admin/announcements', adminMiddleware, permit('manageContent'), (req, res) => res.json({ announcements: platform.getAnnouncements() }));
+app.post('/api/admin/announcements', adminMiddleware, permit('manageContent'), (req, res) => {
   const b = req.body || {};
   if (!String(b.title || '').trim() || !String(b.body || '').trim()) return res.status(400).json({ error: 'العنوان والنص مطلوبان.' });
   const announcement = platform.addAnnouncement({ title: String(b.title).trim().slice(0, 80), body: String(b.body).trim().slice(0, 400), type: ['info','success','warning','danger'].includes(b.type) ? b.type : 'info', active: b.active !== false });
@@ -434,19 +457,19 @@ app.post('/api/admin/announcements', adminMiddleware, (req, res) => {
   io.emit('platform:announcement', announcement);
   res.status(201).json({ ok: true, announcement });
 });
-app.patch('/api/admin/announcements/:id', adminMiddleware, (req, res) => {
+app.patch('/api/admin/announcements/:id', adminMiddleware, permit('manageContent'), (req, res) => {
   const announcement = platform.updateAnnouncement(req.params.id, { active: !!req.body.active });
   if (!announcement) return res.status(404).json({ error: 'الإعلان غير موجود.' });
   platform.addAudit(req.admin.email, 'تغيير حالة إعلان', announcement.title);
   res.json({ ok: true, announcement });
 });
-app.delete('/api/admin/announcements/:id', adminMiddleware, (req, res) => {
+app.delete('/api/admin/announcements/:id', adminMiddleware, permit('manageContent'), (req, res) => {
   if (!platform.deleteAnnouncement(req.params.id)) return res.status(404).json({ error: 'الإعلان غير موجود.' });
   platform.addAudit(req.admin.email, 'حذف إعلان', req.params.id);
   res.json({ ok: true });
 });
 
-app.post('/api/admin/streams', adminMiddleware, (req, res) => {
+app.post('/api/admin/streams', adminMiddleware, permit('manageContent'), (req, res) => {
   const b = req.body || {};
   const id = `admin_stream_${Date.now()}`;
   const stream = { id, title: String(b.title || 'بث مميز').trim().slice(0, 100), category: ['music','gaming','chat'].includes(b.category) ? b.category : 'chat', host: { id: 0, displayName: String(b.hostName || 'إدارة LiveChat').trim().slice(0, 50), avatarColor: b.avatarColor || '#9b8afb', level: 99 }, viewersCount: Math.max(1, parseInt(b.viewersCount, 10) || 1), likesCount: 0, diamondsEarned: 0, tags: ['مميز'], thumbnailGradient: 'linear-gradient(135deg, #f9a8d4, #c4b5fd)', videoUrl: String(b.videoUrl || '').trim() || '/videos/chat-live.mp4', startedAt: Date.now(), isSimulated: true };
@@ -455,7 +478,7 @@ app.post('/api/admin/streams', adminMiddleware, (req, res) => {
   io.emit('streams:updated', { streams: Array.from(activeLiveStreams.values()) });
   res.status(201).json({ ok: true, stream });
 });
-app.patch('/api/admin/streams/:id', adminMiddleware, (req, res) => {
+app.patch('/api/admin/streams/:id', adminMiddleware, permit('manageContent'), (req, res) => {
   const stream = activeLiveStreams.get(req.params.id);
   if (!stream) return res.status(404).json({ error: 'البث غير موجود.' });
   const b = req.body || {};
@@ -468,7 +491,59 @@ app.patch('/api/admin/streams/:id', adminMiddleware, (req, res) => {
   res.json({ ok: true, stream });
 });
 
-app.get('/api/admin/audit', adminMiddleware, (req, res) => res.json({ audit: platform.getAudit(Math.min(300, parseInt(req.query.limit, 10) || 100)) }));
+app.get('/api/admin/audit', adminMiddleware, permit('viewAudit'), (req, res) => res.json({ audit: platform.getAudit(Math.min(300, parseInt(req.query.limit, 10) || 100)) }));
+
+// Coin store, payment requests and manual confirmation workflow
+app.get('/api/coin-store', (req, res) => res.json({ packages: platform.getCoinPackages(false), methods: platform.getPaymentMethods(false) }));
+app.post('/api/payments/orders', authMiddleware, (req, res) => {
+  const b=req.body||{};
+  const pack=platform.getCoinPackages(false).find(p=>p.id===b.packageId);
+  const method=platform.getPaymentMethods(false).find(m=>m.id===b.methodId);
+  if(!pack||!method) return res.status(400).json({error:'الباقة أو وسيلة الدفع غير صالحة.'});
+  if(!String(b.reference||'').trim()) return res.status(400).json({error:'رقم مرجع عملية الدفع مطلوب.'});
+  const rawProof=String(b.proofUrl||'').trim();
+  const proofUrl=/^https?:\/\//i.test(rawProof)?rawProof.slice(0,500):'';
+  const order=platform.createPaymentOrder({userId:req.user.id,packageId:pack.id,packageName:pack.name,coins:pack.coins,price:pack.price,currency:pack.currency,methodId:method.id,methodName:method.name,reference:String(b.reference).trim().slice(0,80),proofUrl,note:String(b.note||'').trim().slice(0,300)});
+  platform.addAudit(req.user.email||req.user.phone, 'طلب شراء عملات', `${order.id} - ${order.coins} عملة`);
+  res.status(201).json({ok:true,order});
+});
+app.get('/api/payments/my', authMiddleware, (req,res)=>res.json({orders:platform.getPaymentOrders({userId:req.user.id})}));
+
+app.get('/api/admin/payments', adminMiddleware, permit('managePayments'), (req,res)=>{
+  const users=store.allUsers();
+  const orders=platform.getPaymentOrders(req.query.status?{status:req.query.status}:{}).map(o=>({...o,user:publicUser(users.find(u=>u.id===o.userId))}));
+  res.json({orders,packages:platform.getCoinPackages(true),methods:platform.getPaymentMethods(true)});
+});
+app.patch('/api/admin/payments/:id', adminMiddleware, permit('managePayments'), (req,res)=>{
+  const order=platform.findPaymentOrder(req.params.id);
+  if(!order) return res.status(404).json({error:'طلب الدفع غير موجود.'});
+  const status=String(req.body.status||'');
+  if(!['approved','rejected','pending'].includes(status)) return res.status(400).json({error:'حالة الطلب غير صالحة.'});
+  if(order.creditedAt&&status!=='approved') return res.status(400).json({error:'لا يمكن تغيير طلب تم إضافة رصيده.'});
+  if(status==='approved'&&!order.creditedAt){
+    const user=store.findUserById(order.userId);
+    if(!user) return res.status(404).json({error:'صاحب الطلب غير موجود.'});
+    const newCoins=(user.coins||0)+order.coins;
+    store.updateUser(user.id,{coins:newCoins});
+    order.creditedAt=Date.now();
+    io.to(`user:${user.id}`).emit('wallet:update',{coins:newCoins});
+  }
+  const updated=platform.updatePaymentOrder(order.id,{status,reviewedBy:req.admin.email,reviewNote:String(req.body.reviewNote||'').slice(0,300),reviewedAt:Date.now(),creditedAt:order.creditedAt||null});
+  platform.addAudit(req.admin.email,status==='approved'?'تأكيد دفع وإضافة عملات':'تحديث طلب دفع',`${order.id} - ${status}`);
+  res.json({ok:true,order:updated});
+});
+app.post('/api/admin/coin-packages', adminMiddleware, permit('managePayments'), (req,res)=>{
+  const b=req.body||{};const id=String(b.id||`pack_${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g,'');
+  const item=platform.saveCoinPackage({id,name:String(b.name||'باقة عملات').slice(0,50),coins:Math.max(1,parseInt(b.coins,10)||1),price:Math.max(0,Number(b.price)||0),currency:String(b.currency||'DZD').slice(0,8),enabled:b.enabled!==false});
+  platform.addAudit(req.admin.email,'حفظ باقة عملات',item.name);res.json({ok:true,item});
+});
+app.delete('/api/admin/coin-packages/:id', adminMiddleware, permit('managePayments'), (req,res)=>res.json({ok:platform.deleteCoinPackage(req.params.id)}));
+app.post('/api/admin/payment-methods', adminMiddleware, permit('managePayments'), (req,res)=>{
+  const b=req.body||{};const id=String(b.id||`method_${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g,'');
+  const item=platform.savePaymentMethod({id,name:String(b.name||'وسيلة دفع').slice(0,50),account:String(b.account||'').slice(0,150),enabled:b.enabled!==false});
+  platform.addAudit(req.admin.email,'حفظ وسيلة دفع',item.name);res.json({ok:true,item});
+});
+app.delete('/api/admin/payment-methods/:id', adminMiddleware, permit('managePayments'), (req,res)=>res.json({ok:platform.deletePaymentMethod(req.params.id)}));
 
 function publicPlatformConfig() {
   const s = platform.getSettings();
@@ -638,10 +713,7 @@ app.get('/api/me', authMiddleware, (req, res) => {
 
 // Top-up Free Coins
 app.post('/api/wallet/topup', authMiddleware, (req, res) => {
-  const amount = parseInt(req.body.amount, 10) || 500;
-  req.user.coins = (req.user.coins || 0) + amount;
-  if (db.save) db.save();
-  res.json({ ok: true, coins: req.user.coins, message: `🎉 تم شحن ${amount} عملة مجاناً في محفظتك!` });
+  res.status(410).json({ error: 'الشحن المجاني متوقف. استخدم متجر العملات وأرسل إثبات الدفع.' });
 });
 
 // Gifts Catalog
