@@ -906,7 +906,7 @@ input[type="text"]:focus, input[type="password"]:focus { border-color: #ec4899; 
 }
 
 /* =========================================================
-   LIGHT PASTEL THEME — Version 1.6.2
+   LIGHT PASTEL THEME — Version 1.6.3
    ========================================================= */
 :root {
   --bg-dark: #f7f8ff;
@@ -1172,3 +1172,9 @@ body.livechat-theme{height:100dvh;min-height:100dvh;overscroll-behavior-y:none}
 .livechat-bottom-nav{padding-bottom:env(safe-area-inset-bottom,0px);height:calc(var(--bottom-nav-height) + env(safe-area-inset-bottom,0px))}
 @supports not (height:100dvh){body.livechat-theme,.app-main-shell.screen{height:100vh;min-height:100vh}}
 @media(max-width:760px){.livechat-viewport{padding-bottom:calc(var(--bottom-nav-height) + env(safe-area-inset-bottom,0px) + 42px)}.tab-view{padding-bottom:24px}.profile-card{margin-bottom:18px}}
+
+/* Registration and verification screens: independent touch scrolling */
+#auth-view.screen,#verify-view.screen{height:100vh;height:100dvh;min-height:0;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior-y:contain;align-items:flex-start;justify-content:center;padding-top:max(16px,env(safe-area-inset-top,0px));padding-bottom:max(36px,env(safe-area-inset-bottom,0px))}
+#auth-view>.auth-card,#verify-view>.auth-card{flex:0 0 auto;margin-block:auto;max-height:none}
+#register-form,#login-form,#verify-form{touch-action:pan-y}
+@media(max-width:520px){#auth-view.screen,#verify-view.screen{padding-inline:10px}.auth-card{padding-bottom:28px}}

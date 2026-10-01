@@ -421,7 +421,7 @@ app.patch('/api/admin/settings', adminMiddleware, permit('manageSettings'), (req
     tagline: String(b.tagline || '').trim().slice(0, 160),
     taglineEn: String(b.taglineEn || '').trim().slice(0, 160),
     taglineFr: String(b.taglineFr || '').trim().slice(0, 160),
-    version: String(b.version || '1.6.2').trim().slice(0, 20),
+    version: String(b.version || '1.6.3').trim().slice(0, 20),
     supportEmail: String(b.supportEmail || '').trim().slice(0, 100),
     primaryColor: /^#[0-9a-f]{6}$/i.test(b.primaryColor) ? b.primaryColor : '#ff72ad',
     secondaryColor: /^#[0-9a-f]{6}$/i.test(b.secondaryColor) ? b.secondaryColor : '#9b8afb',
