@@ -1,7 +1,7 @@
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0; height: 100%;
-  font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, Arial, sans-serif;
   background: linear-gradient(135deg, #eef1fb, #f7f3fb);
   color: #1f2333;
 }
@@ -19,16 +19,57 @@ input { font-family: inherit; }
 }
 .auth-card {
   width: 100%;
-  max-width: 420px;
+  max-width: 440px;
   background: #fff;
   border-radius: 20px;
   padding: 32px 28px;
   box-shadow: 0 20px 45px rgba(79, 70, 229, 0.15);
 }
-.brand { text-align: center; margin-bottom: 20px; }
+.brand { text-align: center; margin-bottom: 16px; }
 .brand-logo { font-size: 42px; margin-bottom: 6px; }
 .brand h1 { margin: 0; font-size: 22px; color: #312e81; }
 .muted { color: #8a8fa3; font-size: 13px; margin: 6px 0 0; }
+
+.demo-quick-box {
+  margin-bottom: 14px;
+}
+.btn-demo {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
+  transition: all 0.2s ease;
+}
+.btn-demo:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 14px 0 16px;
+  color: #a0aec0;
+  font-size: 12px;
+}
+.divider::before, .divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #e2e8f0;
+}
+.divider span {
+  padding: 0 10px;
+}
 
 .tabs { display: flex; background: #f2f2f9; border-radius: 12px; padding: 4px; margin-bottom: 20px; }
 .tab-btn {
@@ -63,14 +104,29 @@ input[type="text"]:focus, input[type="password"]:focus { border-color: #4f46e5; 
 .btn-primary:hover { transform: translateY(-1px); }
 .btn-link { margin-top: 10px; background: none; border: none; color: #4f46e5; font-size: 13px; font-weight: 600; }
 
+.verify-footer-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
 .form-msg { min-height: 18px; font-size: 13px; margin-top: 8px; text-align: center; }
-.form-msg.error { color: #dc2626; }
+.form-msg.error { color: #dc2626; font-weight: 600; }
 .form-msg.success { color: #059669; }
 
-.code-input { text-align: center; letter-spacing: 10px; font-size: 22px; font-weight: 700; }
+.code-input { text-align: center; letter-spacing: 10px; font-size: 24px; font-weight: 700; color: #4f46e5; }
 .dev-hint {
-  background: #fff7e6; border: 1px dashed #f0b429; color: #92610a;
-  padding: 10px 12px; border-radius: 10px; font-size: 13px; margin-bottom: 14px; text-align: center;
+  background: #eff6ff; border: 1.5px solid #bfdbfe; color: #1e40af;
+  padding: 14px; border-radius: 12px; font-size: 13px; margin-bottom: 16px; text-align: center;
+}
+.dev-hint-header { font-weight: 600; margin-bottom: 6px; }
+.dev-hint-code {
+  font-size: 28px; font-weight: 800; letter-spacing: 6px; color: #4f46e5; margin: 6px 0;
+}
+.btn-autofill {
+  background: #3b82f6; color: #fff; border: none; border-radius: 8px;
+  padding: 6px 12px; font-size: 12px; font-weight: 600; margin-top: 4px;
 }
 
 /* ---------- التطبيق الرئيسي ---------- */
@@ -97,8 +153,9 @@ input[type="text"]:focus, input[type="password"]:focus { border-color: #4f46e5; 
 .icon-btn {
   border: none; background: #f4f4fa; width: 36px; height: 36px; border-radius: 50%;
   font-size: 16px; display: flex; align-items: center; justify-content: center;
+  color: #4b5563;
 }
-.icon-btn:hover { background: #eceafd; }
+.icon-btn:hover { background: #eceafd; color: #4f46e5; }
 
 .sidebar-search { padding: 10px 14px; }
 .sidebar-search input { width: 100%; padding: 9px 12px; border-radius: 10px; border: 1px solid #eee; background: #f7f7fb; font-size: 13px; }
@@ -118,7 +175,7 @@ input[type="text"]:focus, input[type="password"]:focus { border-color: #4f46e5; 
 .user-sub { font-size: 12px; color: #9a9db0; }
 
 .chat-area { flex: 1; display: flex; flex-direction: column; background: #f7f7fc; }
-.chat-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #a5a8bd; }
+.chat-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #a5a8bd; padding: 20px; text-align: center; }
 .chat-empty-icon { font-size: 50px; margin-bottom: 10px; }
 
 .chat-active { display: flex; flex-direction: column; height: 100%; }

@@ -8,18 +8,21 @@
     users: [],
     activePeerId: null,
     socket: null,
-    pendingUserId: null, // for verification flow
+    pendingUserId: null,
+    pendingCode: null,
     call: { pc: null, peerId: null, localStream: null, iceQueue: [], role: null },
   };
 
   function showScreen(id) {
     ['auth-view', 'verify-view', 'app-view'].forEach(s => {
-      $(`#${s}`).classList.toggle('hidden', s !== id);
+      const el = $(`#${s}`);
+      if (el) el.classList.toggle('hidden', s !== id);
     });
   }
 
   function toast(msg) {
     const t = $('#toast');
+    if (!t) return;
     t.textContent = msg;
     t.classList.remove('hidden');
     clearTimeout(toast._timer);
@@ -37,6 +40,25 @@
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw { status: res.status, ...data };
     return data;
+  }
+
+  // ---------------- Quick Demo Login ----------------
+  const btnQuickDemo = $('#btn-quick-demo');
+  if (btnQuickDemo) {
+    btnQuickDemo.addEventListener('click', async () => {
+      btnQuickDemo.disabled = true;
+      btnQuickDemo.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جارٍ الدخول التجريبي...';
+      try {
+        const data = await api('/api/demo-login', { method: 'POST', body: JSON.stringify({}) });
+        loginSuccess(data.token, data.user);
+        toast('تم تسجيل الدخول بحساب تجريبي بنجاح!');
+      } catch (err) {
+        alert(err.error || 'تعذر الدخول التجريبي');
+      } finally {
+        btnQuickDemo.disabled = false;
+        btnQuickDemo.innerHTML = '<i class="fa-solid fa-bolt"></i> دخول سريع بحساب تجريبي فوري';
+      }
+    });
   }
 
   // ---------------- Tabs ----------------
@@ -64,7 +86,7 @@
         input.type = 'text';
       } else {
         label.textContent = 'رقم الهاتف';
-        input.placeholder = '05xxxxxxxx أو +2135xxxxxxxx';
+        input.placeholder = '05xxxxxxxx أو 06xxxxxxxx';
         input.type = 'text';
       }
     });
@@ -78,47 +100,84 @@
     const displayName = $('#reg-name').value.trim();
     const identifier = $('#reg-identifier').value.trim();
     const password = $('#reg-password').value;
+
+    const submitBtn = $('#register-form button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'جارٍ إنشاء الحساب...';
+
     try {
       const data = await api('/api/register', {
         method: 'POST',
         body: JSON.stringify({ displayName, method: regMethod, identifier, password }),
       });
       state.pendingUserId = data.userId;
-      $('#verify-sub').textContent = regMethod === 'email'
-        ? `أدخل الرمز المرسل إلى ${data.target}`
-        : `أدخل الرمز المرسل إلى ${data.target} (وضع تجريبي)`;
-      const hintBox = $('#dev-hint-box');
-      if (data.devHint) {
-        hintBox.classList.remove('hidden');
-        hintBox.innerHTML = `⚠️ لا توجد بوابة SMS حقيقية مفعّلة، هذا وضع تجريبي.<br>رمز التأكيد هو: <b style="font-size:20px">${data.devHint}</b>`;
-      } else {
-        hintBox.classList.add('hidden');
-        hintBox.innerHTML = '';
+      state.pendingCode = data.devHint;
+
+      $('#verify-sub').textContent = `أدخل الرمز المرسل إلى (${data.target})`;
+      const codeDisplay = $('#dev-hint-code-display');
+      if (codeDisplay) {
+        codeDisplay.textContent = data.devHint || '123456';
       }
+
+      // Auto-fill code field
+      const verifyInput = $('#verify-code');
+      if (verifyInput && data.devHint) {
+        verifyInput.value = data.devHint;
+      }
+
       showScreen('verify-view');
     } catch (err) {
-      msg.textContent = err.error || 'حدث خطأ غير متوقع';
+      msg.textContent = err.error || 'حدث خطأ أثناء التسجيل';
       msg.classList.add('error');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'إنشاء الحساب والمتابعة';
     }
   });
 
   // ---------------- Verify ----------------
+  const btnAutofill = $('#btn-autofill-code');
+  if (btnAutofill) {
+    btnAutofill.addEventListener('click', () => {
+      if (state.pendingCode) {
+        $('#verify-code').value = state.pendingCode;
+        $('#verify-form').dispatchEvent(new Event('submit'));
+      }
+    });
+  }
+
   $('#verify-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const msg = $('#verify-msg');
     msg.textContent = ''; msg.className = 'form-msg';
     const code = $('#verify-code').value.trim();
+
+    const submitBtn = $('#verify-form button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'جارٍ التحقق...';
+
     try {
       const data = await api('/api/verify', {
         method: 'POST',
         body: JSON.stringify({ userId: state.pendingUserId, code }),
       });
       loginSuccess(data.token, data.user);
+      toast('🎉 تم تأكيد حسابك وتسجيل الدخول بنجاح!');
     } catch (err) {
-      msg.textContent = err.error || 'رمز غير صحيح';
+      msg.textContent = err.error || 'رمز التأكيد غير صحيح';
       msg.classList.add('error');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'تأكيد الحساب';
     }
   });
+
+  const backBtn = $('#back-to-login-btn');
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      showScreen('auth-view');
+    });
+  }
 
   $('#resend-btn').addEventListener('click', async () => {
     try {
@@ -126,11 +185,11 @@
         method: 'POST',
         body: JSON.stringify({ userId: state.pendingUserId }),
       });
-      const hintBox = $('#dev-hint-box');
-      if (data.devHint) {
-        hintBox.classList.remove('hidden');
-        hintBox.innerHTML = `⚠️ وضع تجريبي، رمز التأكيد الجديد: <b style="font-size:20px">${data.devHint}</b>`;
-      }
+      state.pendingCode = data.devHint;
+      const codeDisplay = $('#dev-hint-code-display');
+      if (codeDisplay) codeDisplay.textContent = data.devHint;
+      const verifyInput = $('#verify-code');
+      if (verifyInput && data.devHint) verifyInput.value = data.devHint;
       toast(data.message || 'تم إرسال رمز جديد');
     } catch (err) {
       toast(err.error || 'تعذر إعادة الإرسال');
@@ -144,6 +203,11 @@
     msg.textContent = ''; msg.className = 'form-msg';
     const identifier = $('#login-identifier').value.trim();
     const password = $('#login-password').value;
+
+    const submitBtn = $('#login-form button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'جارٍ الدخول...';
+
     try {
       const data = await api('/api/login', {
         method: 'POST',
@@ -159,6 +223,9 @@
         msg.textContent = err.error || 'بيانات الدخول غير صحيحة';
         msg.classList.add('error');
       }
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'دخول';
     }
   });
 
@@ -208,23 +275,29 @@
     const list = $('#users-list');
     list.innerHTML = '';
     const f = filter.trim().toLowerCase();
-    state.users
-      .filter(u => !f || u.displayName.toLowerCase().includes(f) || (u.email || '').includes(f) || (u.phone || '').includes(f))
-      .forEach(u => {
-        const div = document.createElement('div');
-        div.className = 'user-item' + (u.id === state.activePeerId ? ' active' : '');
-        div.innerHTML = `
-          <div class="avatar" style="background:${u.avatarColor}">
-            ${initials(u.displayName)}
-            <span class="dot ${u.online ? 'online' : ''}"></span>
-          </div>
-          <div class="user-meta">
-            <div class="user-name">${escapeHtml(u.displayName)}</div>
-            <div class="user-sub">${u.online ? 'متصل الآن' : 'غير متصل'}</div>
-          </div>`;
-        div.addEventListener('click', () => openChat(u));
-        list.appendChild(div);
-      });
+    const filtered = state.users
+      .filter(u => !f || u.displayName.toLowerCase().includes(f) || (u.email || '').includes(f) || (u.phone || '').includes(f));
+
+    if (filtered.length === 0) {
+      list.innerHTML = '<div style="padding:16px;text-align:center;color:#9ca3af;font-size:13px;">لا توجد جهات اتصال مطابقة.</div>';
+      return;
+    }
+
+    filtered.forEach(u => {
+      const div = document.createElement('div');
+      div.className = 'user-item' + (u.id === state.activePeerId ? ' active' : '');
+      div.innerHTML = `
+        <div class="avatar" style="background:${u.avatarColor}">
+          ${initials(u.displayName)}
+          <span class="dot ${u.online ? 'online' : ''}"></span>
+        </div>
+        <div class="user-meta">
+          <div class="user-name">${escapeHtml(u.displayName)}</div>
+          <div class="user-sub">${u.online ? '🟢 متصل الآن' : '⚪ غير متصل'}</div>
+        </div>`;
+      div.addEventListener('click', () => openChat(u));
+      list.appendChild(div);
+    });
   }
 
   $('#search-users').addEventListener('input', (e) => renderUsers(e.target.value));
@@ -240,7 +313,7 @@
     $('#chat-empty').classList.add('hidden');
     $('#chat-active').classList.remove('hidden');
     $('#peer-name').textContent = user.displayName;
-    $('#peer-status').textContent = user.online ? 'متصل الآن' : 'غير متصل';
+    $('#peer-status').textContent = user.online ? '🟢 متصل الآن' : '⚪ غير متصل';
     const av = $('#peer-avatar');
     av.textContent = initials(user.displayName);
     av.style.background = user.avatarColor;
@@ -253,12 +326,12 @@
   }
 
   function appendMessage(m) {
-    if (m.from !== state.activePeerId && m.to !== state.activePeerId) return;
+    if (m.from !== state.activePeerId && m.to !== state.activePeerId && m.from !== state.me.id) return;
     const box = $('#messages');
     const div = document.createElement('div');
     const mine = m.from === state.me.id;
     div.className = 'msg ' + (mine ? 'mine' : 'theirs');
-    const time = new Date(m.createdAt).toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' });
+    const time = new Date(m.createdAt || Date.now()).toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' });
     div.innerHTML = `${escapeHtml(m.body)}<span class="msg-time">${time}</span>`;
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
@@ -286,9 +359,8 @@
       const u = state.users.find(x => x.id === userId);
       if (u) { u.online = online; renderUsers($('#search-users').value); }
       if (state.activePeerId === userId) {
-        $('#peer-status').textContent = online ? 'متصل الآن' : 'غير متصل';
+        $('#peer-status').textContent = online ? '🟢 متصل الآن' : '⚪ غير متصل';
       }
-      // refresh in case a new user registered elsewhere
     });
 
     state.socket.on('connect', () => loadUsers());
@@ -335,7 +407,6 @@
   }
   function showIncoming(caller) {
     if (state.call.peerId) {
-      // busy - auto reject
       state.socket.emit('call:reject', { to: caller.id });
       return;
     }

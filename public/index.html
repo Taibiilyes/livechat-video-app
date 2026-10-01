@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>دردشتي المباشرة</title>
+<title>دردشتي المباشرة — LiveChat & Video</title>
 <link rel="stylesheet" href="/style.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
 
@@ -14,8 +15,17 @@
     <div class="brand">
       <div class="brand-logo">💬</div>
       <h1>دردشتي المباشرة</h1>
-      <p class="muted">دردشة نصية ومكالمات فيديو مباشرة</p>
+      <p class="muted">دردشة نصية ومكالمات فيديو مباشرة عالية الدقة</p>
     </div>
+
+    <!-- زر الدخول السريع التجريبي -->
+    <div class="demo-quick-box">
+      <button type="button" id="btn-quick-demo" class="btn-demo">
+        <i class="fa-solid fa-bolt"></i> دخول سريع بحساب تجريبي فوري
+      </button>
+    </div>
+
+    <div class="divider"><span>أو استخدم حسابك الخاص</span></div>
 
     <div class="tabs">
       <button class="tab-btn active" data-tab="login">تسجيل الدخول</button>
@@ -35,7 +45,7 @@
     <!-- إنشاء حساب -->
     <form id="register-form" class="panel">
       <label>الاسم الظاهر</label>
-      <input type="text" id="reg-name" placeholder="اسمك" required />
+      <input type="text" id="reg-name" placeholder="اسمك الكريم" required />
 
       <label>طريقة التسجيل</label>
       <div class="segmented" id="reg-method">
@@ -49,7 +59,7 @@
       <label>كلمة المرور</label>
       <input type="password" id="reg-password" placeholder="6 أحرف على الأقل" required />
 
-      <button type="submit" class="btn-primary">إنشاء الحساب</button>
+      <button type="submit" class="btn-primary">إنشاء الحساب والمتابعة</button>
       <div class="form-msg" id="register-msg"></div>
     </form>
   </div>
@@ -61,14 +71,24 @@
     <div class="brand">
       <div class="brand-logo">🔐</div>
       <h1>تأكيد الحساب</h1>
-      <p class="muted" id="verify-sub">أدخل الرمز المرسل إليك</p>
+      <p class="muted" id="verify-sub">أدخل رمز التحقق المكون من 6 أرقام</p>
     </div>
-    <div id="dev-hint-box" class="dev-hint hidden"></div>
+
+    <!-- صندوق عرض رمز التأكيد المباشر في وضع التطوير -->
+    <div id="dev-hint-box" class="dev-hint">
+      <div class="dev-hint-header"><i class="fa-solid fa-key"></i> رمز التأكيد الخاص بك:</div>
+      <div class="dev-hint-code" id="dev-hint-code-display">------</div>
+      <button type="button" id="btn-autofill-code" class="btn-autofill"><i class="fa-solid fa-wand-magic-sparkles"></i> إدخال الرمز وتأكيده تلقائياً</button>
+    </div>
+
     <form id="verify-form" class="panel active">
       <label>رمز التأكيد (6 أرقام)</label>
       <input type="text" id="verify-code" maxlength="6" inputmode="numeric" placeholder="------" class="code-input" required />
-      <button type="submit" class="btn-primary">تأكيد</button>
-      <button type="button" id="resend-btn" class="btn-link">إعادة إرسال الرمز</button>
+      <button type="submit" class="btn-primary">تأكيد الحساب</button>
+      <div class="verify-footer-actions">
+        <button type="button" id="resend-btn" class="btn-link">إعادة إرسال رمز جديد</button>
+        <button type="button" id="back-to-login-btn" class="btn-link">العودة لتسجيل الدخول</button>
+      </div>
       <div class="form-msg" id="verify-msg"></div>
     </form>
   </div>
@@ -85,10 +105,10 @@
           <div class="me-sub" id="me-sub"></div>
         </div>
       </div>
-      <button id="logout-btn" title="تسجيل الخروج" class="icon-btn">⏻</button>
+      <button id="logout-btn" title="تسجيل الخروج" class="icon-btn"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
     </div>
     <div class="sidebar-search">
-      <input type="text" id="search-users" placeholder="🔎 ابحث عن مستخدم..." />
+      <input type="text" id="search-users" placeholder="🔎 ابحث عن جهة اتصال..." />
     </div>
     <div class="users-list" id="users-list"></div>
   </aside>
@@ -96,7 +116,8 @@
   <main class="chat-area">
     <div id="chat-empty" class="chat-empty">
       <div class="chat-empty-icon">💬</div>
-      <p>اختر مستخدمًا من القائمة لبدء الدردشة</p>
+      <h3>مرحباً بك في دردشتي المباشرة!</h3>
+      <p>اختر أحد المستخدمين من القائمة الجانبية لبدء المحادثة النصية أو إجراء مكالمة فيديو مباشرة.</p>
     </div>
 
     <div id="chat-active" class="chat-active hidden">
@@ -109,13 +130,13 @@
           </div>
         </div>
         <div class="chat-actions">
-          <button id="video-call-btn" class="icon-btn" title="مكالمة فيديو">📹</button>
+          <button id="video-call-btn" class="icon-btn" title="بدء مكالمة فيديو مباشرة">📹</button>
         </div>
       </div>
       <div class="messages" id="messages"></div>
       <form id="message-form" class="message-form">
-        <input type="text" id="message-input" placeholder="اكتب رسالتك..." autocomplete="off" />
-        <button type="submit" class="btn-primary send-btn">إرسال</button>
+        <input type="text" id="message-input" placeholder="اكتب رسالتك هنا..." autocomplete="off" />
+        <button type="submit" class="btn-primary send-btn"><i class="fa-solid fa-paper-plane"></i> إرسال</button>
       </form>
     </div>
   </main>
@@ -130,9 +151,9 @@
       <video id="local-video" autoplay playsinline muted></video>
     </div>
     <div class="call-controls">
-      <button id="toggle-mic" class="call-btn">🎙️</button>
-      <button id="toggle-cam" class="call-btn">📷</button>
-      <button id="end-call" class="call-btn end">📞</button>
+      <button id="toggle-mic" class="call-btn" title="كتم/تشغيل الميكروفون">🎙️</button>
+      <button id="toggle-cam" class="call-btn" title="إيقاف/تشغيل الكاميرا">📷</button>
+      <button id="end-call" class="call-btn end" title="إنهاء المكالمة">📞</button>
     </div>
   </div>
 </div>
@@ -144,7 +165,7 @@
     <div class="incoming-name" id="incoming-name"></div>
     <div class="muted">مكالمة فيديو واردة...</div>
     <div class="incoming-actions">
-      <button id="accept-call" class="call-btn accept">✔ قبول</button>
+      <button id="accept-call" class="call-btn accept">✔ قبول المكالمة</button>
       <button id="reject-call" class="call-btn end">✖ رفض</button>
     </div>
   </div>

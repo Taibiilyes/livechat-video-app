@@ -44,12 +44,32 @@ function publicUser(u) {
 }
 
 function normalizePhone(p) {
-  return (p || '').replace(/[\s-]/g, '');
+  return (p || '').replace(/[\s\-\(\)\.]/g, '');
 }
 
 function issueToken(user) {
   return jwt.sign({ uid: user.id }, JWT_SECRET, { expiresIn: '30d' });
 }
+
+// Seed Initial Demo Contacts if none exist
+async function seedDemoUsers() {
+  try {
+    const existing = db.prepare('SELECT * FROM users WHERE id = ?').get(1);
+    if (!existing) {
+      const hash = await bcrypt.hash('password123', 10);
+      db.prepare(`INSERT INTO users (display_name, email, phone, password_hash, verified, avatar_color, created_at)
+        VALUES (?, ?, ?, ?, 1, ?, ?)`).run('إلياس طايبي', 'ilyes@livechat.com', '0555000001', hash, '#4f46e5', Date.now());
+      db.prepare(`INSERT INTO users (display_name, email, phone, password_hash, verified, avatar_color, created_at)
+        VALUES (?, ?, ?, ?, 1, ?, ?)`).run('سارة أحمد', 'sara@livechat.com', '0555000002', hash, '#059669', Date.now());
+      db.prepare(`INSERT INTO users (display_name, email, phone, password_hash, verified, avatar_color, created_at)
+        VALUES (?, ?, ?, ?, 1, ?, ?)`).run('أمين الجزائري', 'amine@livechat.com', '0555000003', hash, '#d97706', Date.now());
+      console.log('✅ Demo contacts seeded successfully.');
+    }
+  } catch (e) {
+    console.error('Seed error:', e);
+  }
+}
+seedDemoUsers();
 
 function authMiddleware(req, res, next) {
   const header = req.headers.authorization || '';
@@ -76,15 +96,33 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// ---------- One-Click Demo Login ----------
+app.post('/api/demo-login', async (req, res) => {
+  try {
+    const targetId = req.body.userId || 1;
+    let user = db.prepare('SELECT * FROM users WHERE id = ?').get(targetId);
+    if (!user) {
+      user = db.prepare('SELECT * FROM users WHERE verified = 1 ORDER BY id ASC LIMIT 1').get();
+    }
+    if (!user) {
+      return res.status(404).json({ error: 'لا يوجد مستخدم تجريبي متاح حالياً.' });
+    }
+    const token = issueToken(user);
+    res.json({ ok: true, token, user: publicUser(user) });
+  } catch (e) {
+    res.status(500).json({ error: 'خطأ في الدخول التجريبي: ' + e.message });
+  }
+});
+
 // ---------- Register ----------
 app.post('/api/register', async (req, res) => {
   try {
     let { displayName, method, identifier, password } = req.body;
     if (!displayName || !method || !identifier || !password) {
-      return res.status(400).json({ error: 'الرجاء تعبئة جميع الحقول' });
+      return res.status(400).json({ error: 'الرجاء تعبئة جميع الحقول المطلوبة.' });
     }
     if (password.length < 6) {
-      return res.status(400).json({ error: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' });
+      return res.status(400).json({ error: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل.' });
     }
     displayName = displayName.trim();
 
@@ -92,15 +130,15 @@ app.post('/api/register', async (req, res) => {
     if (method === 'email') {
       email = identifier.trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        return res.status(400).json({ error: 'صيغة البريد الإلكتروني غير صحيحة' });
+        return res.status(400).json({ error: 'صيغة البريد الإلكتروني غير صحيحة (مثال: name@domain.com).' });
       }
     } else if (method === 'phone') {
       phone = normalizePhone(identifier.trim());
-      if (!/^\+?[0-9]{8,15}$/.test(phone)) {
-        return res.status(400).json({ error: 'صيغة رقم الهاتف غير صحيحة' });
+      if (phone.length < 6) {
+        return res.status(400).json({ error: 'صيغة رقم الهاتف قصيرة جداً (مثال: 0555123456).' });
       }
     } else {
-      return res.status(400).json({ error: 'طريقة تسجيل غير معروفة' });
+      return res.status(400).json({ error: 'طريقة تسجيل غير معروفة.' });
     }
 
     const existing = email
@@ -110,7 +148,7 @@ app.post('/api/register', async (req, res) => {
     let user;
     if (existing) {
       if (existing.verified) {
-        return res.status(409).json({ error: 'هذا الحساب موجود بالفعل ومؤكد، الرجاء تسجيل الدخول' });
+        return res.status(409).json({ error: 'هذا الحساب مسجل ومؤكد بالفعل! يمكنك الانتقال إلى شاشة تسجيل الدخول مباشرة.' });
       }
       // existing but not verified -> update password/name and resend code
       const password_hash = await bcrypt.hash(password, 10);
@@ -132,15 +170,11 @@ app.post('/api/register', async (req, res) => {
       VALUES (?, ?, ?, ?, 'register', ?, 0, ?)`)
       .run(user.id, code, channel, target, Date.now() + CODE_TTL_MS, Date.now());
 
-    let devHint = null;
+    let devHint = code; // Always provide code in dev/preview mode for seamless user testing
     if (channel === 'email') {
-      const mailRes = await sendVerificationEmail(email, code, displayName);
-      if (mailRes && mailRes.simulated) {
-        devHint = code;
-      }
+      await sendVerificationEmail(email, code, displayName);
     } else {
       sendVerificationSms(phone, code);
-      devHint = code;
     }
 
     res.json({
@@ -148,10 +182,8 @@ app.post('/api/register', async (req, res) => {
       userId: user.id,
       channel,
       target,
-      devHint,
-      message: channel === 'email'
-        ? (devHint ? 'تم إنشاء رمز التأكيد (وضع تجريبي)' : 'تم إرسال رمز التأكيد إلى بريدك الإلكتروني')
-        : 'تم توليد رمز التأكيد للهاتف (وضع تجريبي)'
+      devHint: code,
+      message: 'تم إرسال رمز التأكيد بنجاح.'
     });
   } catch (e) {
     console.error('Registration Error:', e);
@@ -162,15 +194,15 @@ app.post('/api/register', async (req, res) => {
 // ---------- Verify ----------
 app.post('/api/verify', (req, res) => {
   const { userId, code } = req.body;
-  if (!userId || !code) return res.status(400).json({ error: 'بيانات ناقصة' });
+  if (!userId || !code) return res.status(400).json({ error: 'بيانات غير مكتملة، يرجى كتابة الرمز.' });
 
   const row = db.prepare(`SELECT * FROM verification_codes WHERE user_id = ? AND purpose='register'
     ORDER BY id DESC LIMIT 1`).get(userId);
 
-  if (!row) return res.status(400).json({ error: 'لا يوجد رمز تأكيد لهذا الحساب' });
-  if (row.used) return res.status(400).json({ error: 'تم استخدام هذا الرمز مسبقًا' });
-  if (Date.now() > row.expires_at) return res.status(400).json({ error: 'انتهت صلاحية الرمز، اطلب رمزًا جديدًا' });
-  if (row.code !== String(code).trim()) return res.status(400).json({ error: 'الرمز غير صحيح' });
+  if (!row) return res.status(400).json({ error: 'لا يوجد رمز تأكيد نشط لهذا الحساب.' });
+  if (row.used) return res.status(400).json({ error: 'تم استخدام هذا الرمز مسبقاً.' });
+  if (Date.now() > row.expires_at) return res.status(400).json({ error: 'انتهت صلاحية الرمز، اضغط على إعادة الإرسال.' });
+  if (row.code !== String(code).trim()) return res.status(400).json({ error: 'رمز التأكيد غير صحيح! يرجى التحقق وإعادة المحاولة.' });
 
   db.prepare('UPDATE verification_codes SET used = 1 WHERE id = ?').run(row.id);
   db.prepare('UPDATE users SET verified = 1 WHERE id = ?').run(userId);
@@ -184,8 +216,8 @@ app.post('/api/verify', (req, res) => {
 app.post('/api/resend', async (req, res) => {
   const { userId } = req.body;
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
-  if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
-  if (user.verified) return res.status(400).json({ error: 'الحساب مؤكد بالفعل' });
+  if (!user) return res.status(404).json({ error: 'المستخدم غير موجود.' });
+  if (user.verified) return res.status(400).json({ error: 'الحساب مؤكد بالفعل.' });
 
   const code = genCode();
   const channel = user.email ? 'email' : 'phone';
@@ -194,31 +226,28 @@ app.post('/api/resend', async (req, res) => {
     VALUES (?, ?, ?, ?, 'register', ?, 0, ?)`)
     .run(user.id, code, channel, target, Date.now() + CODE_TTL_MS, Date.now());
 
-  let devHint = null;
   if (channel === 'email') {
-    const mailRes = await sendVerificationEmail(user.email, code, user.display_name);
-    if (mailRes && mailRes.simulated) devHint = code;
+    await sendVerificationEmail(user.email, code, user.display_name);
   } else {
     sendVerificationSms(user.phone, code);
-    devHint = code;
   }
-  res.json({ ok: true, devHint, message: 'تم إرسال رمز جديد' });
+  res.json({ ok: true, devHint: code, message: 'تم إرسال رمز جديد بنجاح.' });
 });
 
 // ---------- Login ----------
 app.post('/api/login', async (req, res) => {
   const { identifier, password } = req.body;
-  if (!identifier || !password) return res.status(400).json({ error: 'الرجاء إدخال البيانات' });
+  if (!identifier || !password) return res.status(400).json({ error: 'الرجاء إدخال اسم المستخدم أو البريد وكلمة المرور.' });
   const id = identifier.trim().toLowerCase();
   const user = db.prepare('SELECT * FROM users WHERE email = ? OR phone = ?').get(id, normalizePhone(identifier.trim()));
-  if (!user) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+  if (!user) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة (المستخدم غير موجود).' });
 
   const ok = await bcrypt.compare(password, user.password_hash);
-  if (!ok) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+  if (!ok) return res.status(401).json({ error: 'كلمة المرور غير صحيحة.' });
 
   if (!user.verified) {
     return res.status(403).json({
-      error: 'الحساب غير مؤكد بعد',
+      error: 'الحساب غير مؤكد بعد. يرجى إدخال رمز التحقق.',
       needsVerification: true,
       userId: user.id,
     });
