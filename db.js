@@ -18,7 +18,94 @@ try {
   const Database = require('better-sqlite3');
   dbInstance = new Database(dbFilePath);
   dbInstance.pragma('journal_mode = WAL');
-  console.log('✅ Connected to SQLite database using better-sqlite3.');
+
+  // --- Schema (idempotent) ---
+  dbInstance.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      display_name TEXT,
+      email TEXT,
+      phone TEXT,
+      password_hash TEXT,
+      verified INTEGER DEFAULT 0,
+      avatar_color TEXT DEFAULT '#4f46e5',
+      avatar_img TEXT,
+      coins INTEGER DEFAULT 500,
+      diamonds INTEGER DEFAULT 0,
+      level INTEGER DEFAULT 1,
+      followers_count INTEGER DEFAULT 0,
+      created_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS verification_codes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      code TEXT,
+      channel TEXT,
+      target TEXT,
+      purpose TEXT,
+      expires_at INTEGER,
+      used INTEGER DEFAULT 0,
+      created_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      from_user_id INTEGER,
+      to_user_id INTEGER,
+      body TEXT,
+      created_at INTEGER,
+      is_read INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS streams (
+      id TEXT PRIMARY KEY,
+      host_id INTEGER,
+      title TEXT,
+      status TEXT DEFAULT 'live',
+      viewers INTEGER DEFAULT 0,
+      created_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS gifts_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      from_user_id INTEGER,
+      to_user_id INTEGER,
+      stream_id TEXT,
+      gift_key TEXT,
+      cost INTEGER,
+      created_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS follows (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      follower_id INTEGER,
+      following_id INTEGER,
+      created_at INTEGER
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
+    CREATE INDEX IF NOT EXISTS idx_codes_user ON verification_codes(user_id);
+    CREATE INDEX IF NOT EXISTS idx_msgs_pair ON messages(from_user_id, to_user_id);
+  `);
+
+  // --- Lightweight migrations for pre-existing databases ---
+  const userCols = dbInstance.prepare("PRAGMA table_info(users)").all().map(c => c.name);
+  const expected = {
+    avatar_img: "TEXT",
+    coins: "INTEGER DEFAULT 500",
+    diamonds: "INTEGER DEFAULT 0",
+    level: "INTEGER DEFAULT 1",
+    followers_count: "INTEGER DEFAULT 0"
+  };
+  for (const [col, def] of Object.entries(expected)) {
+    if (!userCols.includes(col)) {
+      dbInstance.exec(`ALTER TABLE users ADD COLUMN ${col} ${def}`);
+    }
+  }
+
+  console.log('✅ Connected to SQLite database using better-sqlite3 (schema ready).');
 } catch (nativeErr) {
   console.warn('⚠️ Native better-sqlite3 driver not compiled. Using embedded robust JSON-DB engine.');
 
