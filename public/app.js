@@ -301,11 +301,14 @@
 
       card.innerHTML = `
         <div class="stream-thumb" style="background:${gradient}">
+          ${s.videoUrl ? `<video class="stream-preview-video" src="${escapeHtml(s.videoUrl)}" autoplay muted loop playsinline preload="metadata"></video>` : ''}
+          <div class="stream-video-shade"></div>
           <div class="thumb-badges">
             <span class="badge-live-tag"><span class="live-pulse-dot"></span> مباشر</span>
             <span class="badge-viewers"><i class="fa-solid fa-eye"></i> ${(s.viewersCount || 1).toLocaleString()}</span>
           </div>
           <div class="thumb-bottom-tag">
+            <span class="video-watch-label"><i class="fa-solid fa-circle-play"></i> شاهد البث</span>
             <span class="vip-badge-mini">💎 ${(s.diamondsEarned || 0).toLocaleString()}</span>
           </div>
         </div>
@@ -355,13 +358,29 @@
       state.socket.emit('stream:join', { streamId: stream.id });
     }
 
-    // Play placeholder video / live stream
+    // Play camera stream or one of the built-in demo live videos
     const video = $('#live-stream-video');
+    const placeholder = $('#live-video-placeholder');
+    video.pause();
+    video.removeAttribute('src');
+    video.srcObject = null;
+    video.loop = true;
+    placeholder.style.background = `linear-gradient(180deg, rgba(15,23,42,.28), rgba(15,23,42,.7)), ${stream.thumbnailGradient || 'linear-gradient(135deg, #c4b5fd, #f9a8d4)'}`;
+    placeholder.classList.remove('hidden');
+
     if (stream.localMediaStream) {
       video.srcObject = stream.localMediaStream;
       video.muted = true;
-    } else {
-      video.srcObject = null;
+      video.onplaying = () => placeholder.classList.add('hidden');
+      video.play().catch(() => {});
+    } else if (stream.videoUrl) {
+      video.src = stream.videoUrl;
+      video.muted = false;
+      video.onplaying = () => placeholder.classList.add('hidden');
+      video.play().catch(() => {
+        video.muted = true;
+        video.play().catch(() => {});
+      });
     }
   }
 
@@ -370,6 +389,12 @@
       state.socket.emit('stream:leave', { streamId: state.activeStream.id });
     }
     state.activeStream = null;
+    const video = $('#live-stream-video');
+    video.pause();
+    video.srcObject = null;
+    video.removeAttribute('src');
+    video.load();
+    $('#live-video-placeholder').classList.remove('hidden');
     $('#live-room-overlay').classList.add('hidden');
     loadStreams();
   }

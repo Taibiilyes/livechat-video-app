@@ -50,7 +50,9 @@ async function runTests() {
     // 3. Streams Feed
     const streams = await request('/api/streams');
     if (streams.status !== 200 || !Array.isArray(streams.body.streams)) throw new Error('Streams list failed');
-    console.log(`3. Live Streams Feed (${streams.body.streams.length} Active Streams): PASSED ✅`);
+    const demoStreams = streams.body.streams.filter(s => s.isSimulated);
+    if (demoStreams.length < 3 || demoStreams.some(s => !s.videoUrl)) throw new Error('Demo stream videos are missing');
+    console.log(`3. Live Streams Feed (${streams.body.streams.length} Active Streams + ${demoStreams.length} Videos): PASSED ✅`);
 
     // 4. Gifts Catalog
     const gifts = await request('/api/gifts');

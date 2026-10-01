@@ -129,7 +129,8 @@ async function initSeedData() {
         likesCount: 1420,
         diamondsEarned: 2850,
         tags: ['موسيقى', 'غناء', 'تفاعل'],
-        thumbnailGradient: 'linear-gradient(135deg, #ec4899, #8b5cf6)',
+        thumbnailGradient: 'linear-gradient(135deg, #f9a8d4, #c4b5fd)',
+        videoUrl: '/videos/music-live.mp4',
         startedAt: Date.now() - 1000 * 60 * 25,
         isSimulated: true
       });
@@ -143,7 +144,8 @@ async function initSeedData() {
         likesCount: 980,
         diamondsEarned: 1320,
         tags: ['ألعاب', 'تحديات', 'مرح'],
-        thumbnailGradient: 'linear-gradient(135deg, #3b82f6, #10b981)',
+        thumbnailGradient: 'linear-gradient(135deg, #93c5fd, #6ee7b7)',
+        videoUrl: '/videos/gaming-live.mp4',
         startedAt: Date.now() - 1000 * 60 * 12,
         isSimulated: true
       });
@@ -157,7 +159,8 @@ async function initSeedData() {
         likesCount: 3200,
         diamondsEarned: 5400,
         tags: ['دردشة', 'تفاعل', 'نصائح'],
-        thumbnailGradient: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+        thumbnailGradient: 'linear-gradient(135deg, #fde68a, #fda4af)',
+        videoUrl: '/videos/chat-live.mp4',
         startedAt: Date.now() - 1000 * 60 * 45,
         isSimulated: true
       });
