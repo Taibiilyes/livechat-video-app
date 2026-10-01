@@ -65,7 +65,20 @@
       ['#auth-site-name', '#header-site-name'].forEach(s => { const el=$(s); if(el) el.textContent=config.siteName; });
       ['#auth-version', '#header-version'].forEach(s => { const el=$(s); if(el) el.textContent=`الإصدار ${config.version}`; });
       if ($('#auth-tagline')) $('#auth-tagline').textContent = config.tagline;
-      document.documentElement.style.setProperty('--primary-gradient', `linear-gradient(135deg, ${config.primaryColor}, ${config.secondaryColor})`);
+      if ($('#auth-logo-emoji')) $('#auth-logo-emoji').textContent = config.logoEmoji || '🎥';
+      if ($('#header-logo-emoji')) $('#header-logo-emoji').textContent = config.logoEmoji || '🎥';
+      if ($('#explore-hero-title')) $('#explore-hero-title').textContent = config.heroTitle;
+      if ($('#explore-hero-subtitle')) $('#explore-hero-subtitle').textContent = config.heroSubtitle;
+      const root = document.documentElement;
+      root.style.setProperty('--primary-color', config.primaryColor);
+      root.style.setProperty('--secondary-color', config.secondaryColor);
+      root.style.setProperty('--primary-gradient', `linear-gradient(135deg, ${config.primaryColor}, ${config.secondaryColor})`);
+      root.style.setProperty('--theme-background', config.backgroundColor);
+      root.style.setProperty('--theme-surface', config.surfaceColor);
+      root.style.setProperty('--theme-text', config.textColor);
+      root.style.setProperty('--theme-radius', `${config.borderRadius}px`);
+      root.style.setProperty('--theme-font-scale', config.fontScale);
+      document.body.dataset.theme = config.themeMode || 'light';
       const box = $('#platform-announcements');
       const announcement = (config.announcements || [])[0];
       if (box) {
