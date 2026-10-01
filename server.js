@@ -6,7 +6,6 @@ const cookieParser = require('cookie-parser');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Server } = require('socket.io');
-const { v4: uuidv4 } = require('uuid');
 
 const db = require('./db');
 const { sendVerificationEmail } = require('./mailer');
@@ -16,7 +15,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret';
+const JWT_SECRET = process.env.JWT_SECRET || 'livechat_jwt_secret_key_2026';
 const CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const AVATAR_COLORS = ['#4f46e5', '#7c3aed', '#0ea5e9', '#059669', '#d97706', '#dc2626', '#db2777', '#0891b2'];
 
@@ -33,6 +32,7 @@ function pickAvatarColor() {
 }
 
 function publicUser(u) {
+  if (!u) return null;
   return {
     id: u.id,
     displayName: u.display_name,
@@ -44,7 +44,7 @@ function publicUser(u) {
 }
 
 function normalizePhone(p) {
-  return p.replace(/[\s-]/g, '');
+  return (p || '').replace(/[\s-]/g, '');
 }
 
 function issueToken(user) {
@@ -65,6 +65,16 @@ function authMiddleware(req, res, next) {
     return res.status(401).json({ error: 'جلسة غير صالحة، الرجاء تسجيل الدخول من جديد' });
   }
 }
+
+// Health Check
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    service: 'livechat-video-app',
+    onlineUsersCount: onlineUsers.size,
+    timestamp: new Date().toISOString()
+  });
+});
 
 // ---------- Register ----------
 app.post('/api/register', async (req, res) => {
@@ -100,7 +110,7 @@ app.post('/api/register', async (req, res) => {
     let user;
     if (existing) {
       if (existing.verified) {
-        return res.status(409).json({ error: 'هذا الحساب موجود بالفعل، الرجاء تسجيل الدخول' });
+        return res.status(409).json({ error: 'هذا الحساب موجود بالفعل ومؤكد، الرجاء تسجيل الدخول' });
       }
       // existing but not verified -> update password/name and resend code
       const password_hash = await bcrypt.hash(password, 10);
@@ -124,10 +134,13 @@ app.post('/api/register', async (req, res) => {
 
     let devHint = null;
     if (channel === 'email') {
-      await sendVerificationEmail(email, code, displayName);
+      const mailRes = await sendVerificationEmail(email, code, displayName);
+      if (mailRes && mailRes.simulated) {
+        devHint = code;
+      }
     } else {
       sendVerificationSms(phone, code);
-      devHint = code; // لا توجد بوابة SMS حقيقية، نعرض الرمز في الواجهة كوضع تجريبي واضح
+      devHint = code;
     }
 
     res.json({
@@ -137,12 +150,12 @@ app.post('/api/register', async (req, res) => {
       target,
       devHint,
       message: channel === 'email'
-        ? 'تم إرسال رمز التأكيد إلى بريدك الإلكتروني'
-        : 'تم "إرسال" رمز التأكيد (وضع تجريبي لعدم وجود بوابة SMS حقيقية)'
+        ? (devHint ? 'تم إنشاء رمز التأكيد (وضع تجريبي)' : 'تم إرسال رمز التأكيد إلى بريدك الإلكتروني')
+        : 'تم توليد رمز التأكيد للهاتف (وضع تجريبي)'
     });
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'حدث خطأ في الخادم أثناء التسجيل' });
+    console.error('Registration Error:', e);
+    res.status(500).json({ error: 'حدث خطأ في الخادم أثناء التسجيل: ' + e.message });
   }
 });
 
@@ -183,7 +196,8 @@ app.post('/api/resend', async (req, res) => {
 
   let devHint = null;
   if (channel === 'email') {
-    await sendVerificationEmail(user.email, code, user.display_name);
+    const mailRes = await sendVerificationEmail(user.email, code, user.display_name);
+    if (mailRes && mailRes.simulated) devHint = code;
   } else {
     sendVerificationSms(user.phone, code);
     devHint = code;
@@ -282,8 +296,8 @@ io.on('connection', (socket) => {
   });
 
   // ---- WebRTC 1:1 signaling ----
-  socket.on('call:invite', ({ to }) => {
-    io.to(`user:${to}`).emit('call:invite', { from: socket.user });
+  socket.on('call:invite', ({ to, isVideo = true }) => {
+    io.to(`user:${to}`).emit('call:invite', { from: socket.user, isVideo });
   });
   socket.on('call:accept', ({ to }) => {
     io.to(`user:${to}`).emit('call:accept', { from: uid });
@@ -321,5 +335,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on http://0.0.0.0:${PORT}`);
+  console.log(`🚀 LiveChat Server running on http://0.0.0.0:${PORT}`);
 });

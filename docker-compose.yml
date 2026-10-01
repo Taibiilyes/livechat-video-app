@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  livechat:
+    build: .
+    container_name: livechat_video_app
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - HOST=0.0.0.0
+      - JWT_SECRET=livechat_secret_key_production_2026
+      - GMAIL_USER=${GMAIL_USER:-}
+      - GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD:-}
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

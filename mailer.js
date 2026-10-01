@@ -1,15 +1,22 @@
 const nodemailer = require('nodemailer');
 require('dotenv').config();
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-});
-
 const APP_NAME = process.env.APP_NAME || 'دردشتي المباشرة';
+
+let transporter = null;
+if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+  try {
+    transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
+      },
+    });
+  } catch (err) {
+    console.warn('⚠️ Could not configure nodemailer:', err.message);
+  }
+}
 
 async function sendVerificationEmail(toEmail, code, displayName) {
   const html = `
@@ -29,13 +36,26 @@ async function sendVerificationEmail(toEmail, code, displayName) {
     </div>
   </div>`;
 
-  await transporter.sendMail({
-    from: `"${APP_NAME}" <${process.env.GMAIL_USER}>`,
-    to: toEmail,
-    subject: `رمز التأكيد: ${code} - ${APP_NAME}`,
-    html,
-    text: `رمز التأكيد الخاص بك هو: ${code} (صالح لمدة 10 دقائق)`,
-  });
+  if (transporter && process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+    try {
+      await transporter.sendMail({
+        from: `"${APP_NAME}" <${process.env.GMAIL_USER}>`,
+        to: toEmail,
+        subject: `رمز التأكيد: ${code} - ${APP_NAME}`,
+        html,
+        text: `رمز التأكيد الخاص بك هو: ${code} (صالح لمدة 10 دقائق)`,
+      });
+      console.log(`[EMAIL-SENT] -> ${toEmail} : Code ${code}`);
+      return { sent: true };
+    } catch (e) {
+      console.warn(`[EMAIL-FALLBACK] Failed to send email to ${toEmail}: ${e.message}. Falling back to simulation mode.`);
+      console.log(`[VERIFICATION-CODE] -> ${toEmail} : ${code}`);
+      return { simulated: true, code };
+    }
+  } else {
+    console.log(`[EMAIL-SIMULATION] (No Gmail credentials set) -> ${toEmail} : رمز التأكيد هو ${code}`);
+    return { simulated: true, code };
+  }
 }
 
 module.exports = { sendVerificationEmail };
