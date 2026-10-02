@@ -19,7 +19,7 @@
         <span id="auth-logo-emoji">🎥</span>
       </div>
       <h1 id="auth-site-name">LumaLive</h1>
-      <span class="version-badge" id="auth-version">الإصدار 1.6.5</span>
+      <span class="version-badge" id="auth-version">الإصدار 1.7.0</span>
       <p class="muted" id="auth-tagline">منصة البث المباشر والتفاعل والهدايا والمكالمات الفورية</p>
     </div>
 
@@ -112,7 +112,7 @@
         <span class="header-logo-emoji" id="header-logo-emoji">🎥</span>
         <span class="brand-title-stack">
           <span class="brand-name" id="header-site-name">LumaLive</span>
-          <small class="header-version" id="header-version">الإصدار 1.6.5</small>
+          <small class="header-version" id="header-version">الإصدار 1.7.0</small>
         </span>
       </div>
     </div>
@@ -280,6 +280,20 @@
             <span class="stat-lbl">🪙 العملات</span>
           </div>
         </div>
+
+        <section class="profile-videos-section">
+          <div class="profile-videos-head">
+            <div><h4><i class="fa-solid fa-film"></i> مقاطع حسابي</h4><p>حمّل مقاطع MP4 أو WebM أو MOV حتى 100 ميغابايت</p></div>
+            <button id="btn-choose-profile-video" type="button" class="btn-upload-video"><i class="fa-solid fa-cloud-arrow-up"></i> تحميل فيديو</button>
+          </div>
+          <form id="profile-video-upload-form" class="profile-video-upload-form hidden">
+            <input id="profile-video-file" type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" required />
+            <input id="profile-video-title" type="text" maxlength="80" placeholder="عنوان المقطع" required />
+            <div class="profile-video-form-actions"><button type="submit" class="btn-primary"><i class="fa-solid fa-upload"></i> نشر المقطع</button><button id="btn-cancel-video-upload" type="button" class="btn-link">إلغاء</button></div>
+            <div id="profile-video-upload-msg" class="form-msg"></div>
+          </form>
+          <div id="profile-videos-grid" class="profile-videos-grid"><div class="profile-videos-empty">لا توجد مقاطع منشورة بعد</div></div>
+        </section>
 
         <div id="staff-admin-entry" class="staff-admin-entry hidden">
           <div><i class="fa-solid fa-shield-halved"></i><span><b id="staff-admin-title">لوحة إدارة LumaLive</b><small id="staff-admin-subtitle">إدارة المستخدمين والمحتوى والمدفوعات والإعدادات</small></span></div>

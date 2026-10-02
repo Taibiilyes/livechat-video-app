@@ -5,11 +5,13 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
 const { Server } = require('socket.io');
 
 const db = require('./db');
 const store = require('./admin-store');
 const platform = require('./platform-store');
+const videoStore = require('./video-store');
 const { sendVerificationEmail } = require('./mailer');
 const { sendVerificationSms } = require('./sms');
 
@@ -35,7 +37,20 @@ function permit(permission) { return (req,res,next) => hasPermission(req.admin,p
 
 app.use(express.json());
 app.use(cookieParser());
+app.use('/user-media', express.static(videoStore.uploadDir, { fallthrough: false, maxAge: '1h' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+const videoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, videoStore.uploadDir),
+    filename: (req, file, cb) => {
+      const ext = ({ 'video/mp4': '.mp4', 'video/webm': '.webm', 'video/quicktime': '.mov' })[file.mimetype] || '.mp4';
+      cb(null, `user_${req.user.id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`);
+    }
+  }),
+  limits: { fileSize: 100 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => cb(null, ['video/mp4', 'video/webm', 'video/quicktime'].includes(file.mimetype))
+});
 
 // Gift catalog is editable from the administration dashboard.
 let GIFTS_CATALOG = platform.getGifts(true);
@@ -421,7 +436,7 @@ app.patch('/api/admin/settings', adminMiddleware, permit('manageSettings'), (req
     tagline: String(b.tagline || '').trim().slice(0, 160),
     taglineEn: String(b.taglineEn || '').trim().slice(0, 160),
     taglineFr: String(b.taglineFr || '').trim().slice(0, 160),
-    version: String(b.version || '1.6.5').trim().slice(0, 20),
+    version: String(b.version || '1.7.0').trim().slice(0, 20),
     supportEmail: String(b.supportEmail || '').trim().slice(0, 100),
     primaryColor: /^#[0-9a-f]{6}$/i.test(b.primaryColor) ? b.primaryColor : '#ff72ad',
     secondaryColor: /^#[0-9a-f]{6}$/i.test(b.secondaryColor) ? b.secondaryColor : '#9b8afb',
@@ -744,6 +759,46 @@ app.post('/api/login', async (req, res) => {
 // Profile / Me
 app.get('/api/me', authMiddleware, (req, res) => {
   res.json({ user: publicUser(req.user) });
+});
+
+// Personal account videos
+app.get('/api/videos/me', authMiddleware, (req, res) => {
+  res.json({ videos: videoStore.listByUser(req.user.id) });
+});
+
+app.get('/api/users/:userId/videos', authMiddleware, (req, res) => {
+  const userId = Number(req.params.userId);
+  if (!Number.isInteger(userId) || userId < 1) return res.status(400).json({ error: 'معرّف المستخدم غير صالح.' });
+  res.json({ videos: videoStore.listByUser(userId) });
+});
+
+app.post('/api/videos', authMiddleware, (req, res) => {
+  if (videoStore.listByUser(req.user.id).length >= 12) {
+    return res.status(409).json({ error: 'وصلت إلى الحد الأقصى: 12 مقطعاً. احذف مقطعاً قبل رفع آخر.' });
+  }
+  videoUpload.single('video')(req, res, (error) => {
+    if (error) {
+      const message = error.code === 'LIMIT_FILE_SIZE' ? 'حجم الفيديو يتجاوز 100 ميغابايت.' : 'تعذر تحميل الفيديو.';
+      return res.status(400).json({ error: message });
+    }
+    if (!req.file) return res.status(400).json({ error: 'اختر فيديو MP4 أو WebM أو MOV صالحاً.' });
+    const video = videoStore.add({
+      userId: req.user.id,
+      displayName: req.user.display_name,
+      title: req.body.title,
+      filename: req.file.filename,
+      mimeType: req.file.mimetype,
+      size: req.file.size
+    });
+    res.status(201).json({ ok: true, video });
+  });
+});
+
+app.delete('/api/videos/:id', authMiddleware, (req, res) => {
+  const result = videoStore.remove(req.params.id, { id: req.user.id, role: userRole(req.user) });
+  if (result.status === 'missing') return res.status(404).json({ error: 'الفيديو غير موجود.' });
+  if (result.status === 'forbidden') return res.status(403).json({ error: 'لا يمكنك حذف هذا الفيديو.' });
+  res.json({ ok: true });
 });
 
 // Top-up Free Coins

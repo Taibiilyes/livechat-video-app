@@ -21,6 +21,7 @@
     studioStream: null,
     platformConfig: null,
     coinPackages: [], paymentMethods: [], selectedPackageId: null,
+    profileVideos: [],
     call: { pc: null, peerId: null, localStream: null, iceQueue: [], role: null },
   };
 
@@ -266,6 +267,7 @@
     loadGifts();
     loadLeaderboard();
     loadMyPayments();
+    loadProfileVideos();
   }
 
   function updateUserUI() {
@@ -302,6 +304,89 @@
     const staffEntry = $('#staff-admin-entry');
     if (staffEntry) staffEntry.classList.toggle('hidden', !['owner', 'admin', 'moderator', 'seller'].includes(state.me.role));
   }
+
+  async function loadProfileVideos() {
+    if (!state.token) return;
+    try {
+      const data = await api('/api/videos/me');
+      state.profileVideos = data.videos || [];
+      renderProfileVideos();
+    } catch (_) {}
+  }
+
+  function renderProfileVideos() {
+    const grid = $('#profile-videos-grid');
+    if (!grid) return;
+    if (!state.profileVideos.length) {
+      grid.innerHTML = '<div class="profile-videos-empty"><i class="fa-regular fa-circle-play"></i><span>لا توجد مقاطع منشورة بعد</span></div>';
+      return;
+    }
+    grid.innerHTML = state.profileVideos.map(video => `
+      <article class="profile-video-card">
+        <video src="${escapeHtml(video.url)}" controls playsinline preload="metadata"></video>
+        <div class="profile-video-meta"><b>${escapeHtml(video.title)}</b><small>${new Date(video.createdAt).toLocaleDateString()}</small></div>
+        <button type="button" class="profile-video-delete" data-video-id="${escapeHtml(video.id)}" title="حذف الفيديو"><i class="fa-solid fa-trash"></i></button>
+      </article>`).join('');
+  }
+
+  const chooseProfileVideo = $('#btn-choose-profile-video');
+  const profileVideoForm = $('#profile-video-upload-form');
+  chooseProfileVideo?.addEventListener('click', () => {
+    profileVideoForm.classList.remove('hidden');
+    $('#profile-video-file').click();
+  });
+  $('#btn-cancel-video-upload')?.addEventListener('click', () => {
+    profileVideoForm.reset();
+    profileVideoForm.classList.add('hidden');
+    $('#profile-video-upload-msg').textContent = '';
+  });
+  profileVideoForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const file = $('#profile-video-file').files[0];
+    const title = $('#profile-video-title').value.trim();
+    const msg = $('#profile-video-upload-msg');
+    const submit = profileVideoForm.querySelector('button[type="submit"]');
+    msg.className = 'form-msg'; msg.textContent = '';
+    if (!file || !title) return;
+    if (file.size > 100 * 1024 * 1024) {
+      msg.textContent = 'حجم الفيديو يتجاوز 100 ميغابايت.'; msg.classList.add('error'); return;
+    }
+    const form = new FormData();
+    form.append('video', file);
+    form.append('title', title);
+    submit.disabled = true;
+    submit.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جارٍ التحميل…';
+    try {
+      const response = await fetch('/api/videos', { method: 'POST', headers: { Authorization: `Bearer ${state.token}` }, body: form });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw data;
+      state.profileVideos.unshift(data.video);
+      renderProfileVideos();
+      profileVideoForm.reset();
+      profileVideoForm.classList.add('hidden');
+      toast('تم نشر الفيديو على حسابك بنجاح 🎬');
+    } catch (error) {
+      msg.textContent = error.error || 'تعذر تحميل الفيديو.';
+      msg.classList.add('error');
+    } finally {
+      submit.disabled = false;
+      submit.innerHTML = '<i class="fa-solid fa-upload"></i> نشر المقطع';
+    }
+  });
+  $('#profile-videos-grid')?.addEventListener('click', async (event) => {
+    const button = event.target.closest('.profile-video-delete');
+    if (!button || !confirm('حذف هذا الفيديو من حسابك؟')) return;
+    button.disabled = true;
+    try {
+      await api(`/api/videos/${encodeURIComponent(button.dataset.videoId)}`, { method: 'DELETE' });
+      state.profileVideos = state.profileVideos.filter(v => v.id !== button.dataset.videoId);
+      renderProfileVideos();
+      toast('تم حذف الفيديو');
+    } catch (error) {
+      toast(error.error || 'تعذر حذف الفيديو');
+      button.disabled = false;
+    }
+  });
 
   $('#btn-logout').addEventListener('click', () => {
     localStorage.removeItem('token');
